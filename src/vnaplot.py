@@ -8,205 +8,252 @@ from touchstone import Touchstone as touch
 from touchstone import TouchstoneList
 from matplotlib.animation import FuncAnimation
 from thermocouple import Thermocouple
+from scipy.optimize import curve_fit
+from sklearn.metrics import mean_squared_error
+from dataconfig import DataConfig
 
 
 class VNAPlot:
     def __init__(
         self,
-        center,
-        thermocouple: Thermocouple,
         tsList: TouchstoneList,
-        IFBW,
-        FREQSTART,
-        FREQEND,
-        POINTS,
-        HISTORYBUFFERSIZE,
-        SIGNAL,
-        MAXDB,
-        MINDB,
+        config: DataConfig,
     ):
+        # Config
         np.set_printoptions(precision=10)
+        self.markers = []
+        self.config = config
+        self.tsList = tsList
 
         # Initialize plot
-        self.fig, axs = plt.subplots(3, 2, dpi=50)
-        ax1 = axs[0, 0]
-        ax2 = axs[1, 0]
-        ax3 = axs[2, 0]
-        ax4 = axs[0, 1]
-        ax5 = axs[1, 1]
-        ax6 = axs[2, 1]
+        self.fig, axs = plt.subplots(3, 3, dpi=90)
+        self.ax1 = axs[0, 0]
+        self.ax2 = axs[1, 0]
+        self.ax3 = axs[2, 0]
+        self.ax4 = axs[0, 1]
+        self.ax5 = axs[1, 1]
+        self.ax6 = axs[2, 1]
+        self.ax7 = axs[0, 2]
 
-        self.fig.set_size_inches(10, 10)
-        (line1,) = ax1.plot([], [], "r-", linewidth=1)
-        (line2,) = ax2.plot([], [], linewidth=1, color="blue")
-        (line3,) = ax3.plot([], [], linewidth=1, color="green")
-        (line5,) = ax5.plot([], [], linewidth=1, color="brown")
+        self.fig.set_size_inches(15, 10)
+        (self.line1,) = self.ax1.plot([], [], "r-", linewidth=1)
+        (self.line2,) = self.ax2.plot([], [], linewidth=1, color="blue")
+        (self.line3,) = self.ax3.plot([], [], linewidth=1, color="green")
+        (self.line5,) = self.ax5.plot([], [], linewidth=1, color="brown")
+        (self.line6,) = self.ax6.plot([], [], linewidth=1, color="purple")
+        (self.line7,) = self.ax7.plot([], [], linewidth=1, color="blue")
         # Generate sample data
-        num_points_time = 120  # Two minutes of data
-        num_points_frequency = 50
-        data = (np.random.rand(num_points_time * 10, num_points_frequency) * 50) - 70
+        self.num_points_time = 120  # Two minutes of data
+        self.num_points_frequency = 50
+        data = (
+            np.random.rand(self.num_points_time * 10, self.num_points_frequency) * 50
+        ) - 70
         # Print information about the data
         # print("Data shape:", data.shape)
         # print("Data type:", data.dtype)
         # print("Data range:", np.min(data), np.max(data))
-        print(type(MINDB))
+        print(type(config.minDB))
         self.fig.colorbar(
-            ax4.imshow(
+            self.ax4.imshow(
                 data,
                 cmap="viridis",
-                vmin=MINDB,
-                vmax=MAXDB,
+                vmin=config.minDB,
+                vmax=config.maxDB,
                 aspect="auto",
                 interpolation="nearest",
                 origin="lower",
-                extent=[0, POINTS, 0, num_points_time],
+                extent=[0, config.points, 0, self.num_points_time],
             ),
-            ax=ax4,
+            ax=self.ax4,
         )
 
-        ax4.set_label("Magnitude (dB)")
+        self.ax4.set_label("Magnitude (dB)")
 
         # Plot 1: Mag Buffer
-        ax1.set_xlim(FREQSTART * 1e9, FREQEND * 1e9)
+        self.ax1.set_xlim(config.freqStart * 1e9, config.freqEnd * 1e9)
         # Adjust limits based on your data range
-        ax1.set_ylim(MINDB, MAXDB)
-        ax1.set_xlabel("Frequency (GHz)")
-        ax1.set_ylabel("Magnitude (dB)")
-        ax1.set_title(
-            "Real Time Plot of Frequencies and Magnitudes, " + str(POINTS) + " Points"
+        self.ax1.set_ylim(config.minDB, config.maxDB)
+        self.ax1.set_xlabel("Frequency (GHz)")
+        self.ax1.set_ylabel("Magnitude (dB)")
+        self.ax1.set_title(
+            "Real Time Plot of Frequencies and Magnitudes, "
+            + str(config.points)
+            + " Points"
         )
-        ax1.grid(True)
+        self.ax1.grid(True)
         # Plot 2: Mag Buffer
-        ax2.set_xlim(1, HISTORYBUFFERSIZE)
-        ax2.set_xlabel("timestep")
-        ax2.set_ylabel("Resonant Freqnecy point magnitude (dB)")
-        ax2.set_title("Change in Resonant Freqnency point Magnitude over time")
-        ax2.grid(True)
+        self.ax2.set_xlim(1, config.bufferSize)
+        self.ax2.set_xlabel("timestep")
+        self.ax2.set_ylabel("Resonant Freqnecy point magnitude (dB)")
+        self.ax2.set_title("Change in Resonant Freqnency point Magnitude over time")
+        self.ax2.grid(True)
 
         # Plot 3: Frequency Buffer
-        ax3.set_xlim(1, HISTORYBUFFERSIZE)
-        ax3.set_xlabel("timestep")
-        ax3.set_ylabel("Resonant Freqnancy (Ghz)")
-        ax3.set_title("Change in resonant frequency over time")
-        ax3.grid(True)
+        self.ax3.set_xlim(1, config.bufferSize)
+        self.ax3.set_xlabel("timestep")
+        self.ax3.set_ylabel("Resonant Freqnancy (Ghz)")
+        self.ax3.set_title("Change in resonant frequency over time")
+        self.ax3.grid(True)
         # Plot 4: Temperature (Real)
-        ax5.set_xlim(1, HISTORYBUFFERSIZE)
-        ax5.set_xlabel("timestep")
-        ax5.set_ylabel("Temperature °C")
-        ax5.set_title("Temperature of Sensor (Real)")
-        ax5.grid(True)
+        self.ax5.set_xlim(1, config.bufferSize)
+        self.ax5.set_xlabel("timestep")
+        self.ax5.set_ylabel("Temperature °C")
+        self.ax5.set_title("Temperature of Sensor (Real)")
+        self.ax5.grid(True)
+
+        # Plot 6: Temperature vs Resonance Frequency
+        self.ax6.set_xlabel("Temperature (°C)")
+        self.ax6.set_ylabel("Resonance Frequency (Hz)")
+        self.ax6.legend()
+        self.ax6.grid(True)
+        # Plot 7: Temperature vs Resonance Frequency
+        self.ax7.set_xlabel("Temperature (°C)")
+        self.ax7.set_ylabel("Resonance Magnitude (Db)")
+        self.ax7.legend()
+        self.ax7.grid(True)
 
         # print(self.deltaMaxes)
-        markers = []
-
-        def update(frame):
-            # Remove all previous markers from plots
-            for marker in markers:
-                marker[0].remove()
-                marker[1].remove()
-            markers.clear()
-
-            # Get new data from VNA
-            tsFile = touch(
-                center.requestFrequencySweep(
-                    -10, IFBW, 1, POINTS, FREQSTART, FREQEND, SIGNAL
-                )
-            )
-            tsFile.addTemperatureData(thermocouple.readTempatureCelsius())
-            tsList.addTouchstone(tsFile)
-
-            def updateBufferGraph(buffer, ax, line):
-                line.set_xdata(range(len(buffer)))  # Plot rolling buffer
-                line.set_ydata(buffer)
-                ax.set_xlim(1, len(buffer))
-                ax.relim()  # Resize the plot to fit new data
-                ax.autoscale_view()
-
-            def updateWaterfallGraph(ax, buffer):
-                # Water fall update
-                ax.clear()
-                length = len(buffer[0])
-                start_index = max(0, length - num_points_time)
-
-                ax.imshow(
-                    buffer.T,
-                    cmap="viridis",
-                    vmin=MINDB,
-                    vmax=MAXDB,
-                    aspect="auto",
-                    interpolation="nearest",
-                    origin="lower",
-                    extent=[0, POINTS, start_index, length],
-                )  # Displaying the waterfall plot
-                ax.set_xlabel("Frequency")
-                ax.set_ylabel("Time")
-                ax.set_title("Waterfall Plot")
-                ax.set_ylim(max(0, length - num_points_time), length)
-                numOfTicks = 5
-                ax.set_xticks(np.linspace(0, POINTS, numOfTicks))
-                ax.set_xticklabels(
-                    [
-                        f"{label:.1f} GHz"
-                        for label in np.linspace(FREQSTART, FREQEND, numOfTicks)
-                    ]
-                )
-
-            line1.set_xdata(tsFile.getFrequencyRange())
-            line1.set_ydata(tsFile.getDataMagnitude())
-            # self.touchstoneBuffer = np.hstack(
-            #     (self.touchstoneBuffer, tsFile.getDataMagnitude()[:, np.newaxis])
-            # )
-
-            updateBufferGraph(
-                tsList.getResonanceFrequencyList(),
-                ax2,
-                line2,
-            )
-            updateBufferGraph(
-                tsList.getResonanceMagnitudeList(),
-                ax3,
-                line3,
-            )
-            updateBufferGraph(
-                tsList.getTemperatureDataList(),
-                ax5,
-                line5,
-            )
-
-            updateWaterfallGraph(ax4, tsList.getWaterFallDataList())
-
-            # Append Marker
-            minX = tsFile.getResonanceFrequency()[0]
-            minY = tsFile.getResonanceFrequency()[1]
-            marker = ax1.plot(minX, minY, "ro", label="Largest Change in Magnitude")
-            text = ax1.text(
-                minX,
-                minY,
-                str(np.abs(minX) / 10e8) + ", " + str(minY),
-                fontsize=12,
-                ha="right",
-            )
-            markers.append((marker[0], text))
-
-            # print(start_index, frame)
-
-            return (
-                line1,
-                line2,
-                line3,
-            )
-
-        def data_gen():
-            while True:
-                yield None  # This is a placeholder since FuncAnimation requires a generator
-
-        # Create the animation
-        self.ani = FuncAnimation(self.fig, update, blit=False, interval=100)
 
         plt.grid(True)
         plt.tight_layout()
 
         return
+
+    def update(self):
+        try:
+            tsFile = self.tsList.getLastTouchstone()
+        except Exception as e:
+            print(e)
+            return
+
+        # Remove all previous markers from plots
+        for marker in self.markers:
+            marker[0].remove()
+            marker[1].remove()
+        self.markers.clear()
+
+        def updateBufferGraph(buffer, ax, line):
+            line.set_xdata(range(len(buffer)))  # Plot rolling buffer
+            line.set_ydata(buffer)
+            ax.set_xlim(1, len(buffer))
+            ax.relim()  # Resize the plot to fit new data
+            ax.autoscale_view()
+
+        def updateWaterfallGraph(ax, buffer):
+            # Water fall update
+            ax.clear()
+            length = len(buffer[0])
+            start_index = max(0, length - self.num_points_time)
+
+            ax.imshow(
+                buffer.T,
+                cmap="viridis",
+                vmin=self.config.minDB,
+                vmax=self.config.maxDB,
+                aspect="auto",
+                interpolation="nearest",
+                origin="lower",
+                extent=[0, self.config.points, start_index, length],
+            )  # Displaying the waterfall plot
+            ax.set_xlabel("Frequency")
+            ax.set_ylabel("Time")
+            ax.set_title("Waterfall Plot")
+            ax.set_ylim(max(0, length - self.num_points_time), length)
+            numOfTicks = 5
+            ax.set_xticks(np.linspace(0, self.config.points, numOfTicks))
+            ax.set_xticklabels(
+                [
+                    f"{label:.1f} GHz"
+                    for label in np.linspace(
+                        self.config.freqStart, self.config.freqEnd, numOfTicks
+                    )
+                ]
+            )
+
+        self.line1.set_xdata(tsFile.getFrequencyRange())
+        self.line1.set_ydata(tsFile.getDataMagnitude())
+        # self.touchstoneBuffer = np.hstack(
+        #     (self.touchstoneBuffer, tsFile.getDataMagnitude()[:, np.newaxis])
+        # )
+
+        updateBufferGraph(
+            self.tsList.getResonanceMagnitudeList(),
+            self.ax2,
+            self.line2,
+        )
+        updateBufferGraph(
+            self.tsList.getResonanceFrequencyList(),
+            self.ax3,
+            self.line3,
+        )
+        updateBufferGraph(
+            self.tsList.getTemperatureDataList(),
+            self.ax5,
+            self.line5,
+        )
+
+        updateWaterfallGraph(self.ax4, self.tsList.getWaterFallDataList())
+
+        # Update Temperature vs Resonance Frequency
+
+        temperature = self.tsList.getTemperatureDataList()
+        resonanceFrequency = self.tsList.getResonanceFrequencyList()
+        resonanceMagnitude = self.tsList.getResonanceMagnitudeList()
+        assert len(temperature) == len(resonanceFrequency)
+
+        self.ax6.scatter(
+            temperature,
+            resonanceFrequency,
+            color="green",
+            label="temp vs resonance",
+        )
+        self.ax7.scatter(
+            temperature,
+            resonanceMagnitude,
+            color="blue",
+            label="temp vs resonance",
+        )
+
+        def linear_fit(x, m, b):
+            x = np.array(x)
+            return m * x + b
+
+        # Perform the curve fit
+        # if len(temperature) > 1:
+
+        # params, params_covariance = curve_fit(
+        #     linear_fit, temperature, resonanceFrequency
+        # )
+        # line_fit = linear_fit(temperature, params[0], params[1])
+
+        # # Plot the of best fit on ax6
+        # # self.line6.set_data(temperature, line_fit)
+
+        # # Calculate RMSE
+        # rmse = np.sqrt(mean_squared_error(resonanceFrequency, line_fit)) Testing123
+
+        self.ax6.set_title("Temperature vs Resonance Frequency")
+        self.ax7.set_title("Temperature vs Resonance Mangnitude")
+        # Append Marker
+        minX = tsFile.getResonanceFrequency()[0]
+        minY = tsFile.getResonanceFrequency()[1]
+        marker = self.ax1.plot(minX, minY, "ro", label="Largest Change in Magnitude")
+        text = self.ax1.text(
+            minX,
+            minY,
+            f"{minX.real/10e8:.2f}GHz" + ", " + f"{minY:.2f}",
+            fontsize=12,
+            ha="right",
+        )
+        self.markers.append((marker[0], text))
+
+        # print(start_index, frame)
+
+        return (self.line1, self.line2, self.line3, self.line5, self.line6)
+
+    def data_gen():
+        while True:
+            yield None  # This is a placeholder since FuncAnimation requires a generator
 
     def getPlot(self):
         return self.fig

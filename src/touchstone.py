@@ -11,12 +11,12 @@ class Touchstone:
         magdB = self.getDataMagnitude()
         minIndex = np.argmin(magdB)
         minValue = (magdB).min()
-        self.resonanceFrequency = self.data[minIndex, 0]
+        self.resonanceFrequency = self.data[minIndex, 0].real
         self.resonanceMagnitude = minValue
         self.resonanceComplex = self.data[minIndex, 1]
 
     def getFrequencyRange(self):
-        return self.data[:, 0]
+        return [z.real for z in self.data[:, 0]]
 
     def getDataMagnitude(self):
         return 20 * np.log10(np.abs(self.data[:, 1]))
@@ -35,6 +35,24 @@ class Touchstone:
         for row in self.data:
             data.extend(row)
         return data
+
+    @classmethod
+    def loadCSVData(self, row):
+        timestamp = row[0]
+        resonanceFreq = float(row[1])
+        ResonanceMag = float(row[2])
+        temperature = float(row[3])
+
+        freq_complex_pairs = []
+        for i in range(4, len(row), 2):
+            freq = complex(row[i])
+            complex_value = complex(
+                row[i + 1]
+            )  # Assuming the complex value is in a string form that can be converted
+            freq_complex_pairs.append((freq, complex_value))
+        ts = Touchstone(freq_complex_pairs)
+        ts.addTemperatureData(temperature)
+        return ts
 
     def getResonanceFrequency(self):
         return self.resonanceFrequency, self.resonanceMagnitude, self.resonanceComplex
@@ -88,12 +106,20 @@ class TouchstoneList:
     def getTouchstones(self):
         return self.touchstones
 
+    def getLastTouchstone(self) -> Touchstone:
+        if len(self.touchstones) <= 0:
+            raise Exception("No Touchstones Avaliable to display")
+        else:
+            return self.touchstones[-1][0]
+
     def getResonanceMagnitudeList(self):
-        results = [tsfile[0].getResonanceFrequency()[0] for tsfile in self.touchstones]
+        results = [tsfile[0].getResonanceFrequency()[1] for tsfile in self.touchstones]
         return results
 
     def getResonanceFrequencyList(self):
-        results = [tsfile[0].getResonanceFrequency()[1] for tsfile in self.touchstones]
+        results = [
+            abs(tsfile[0].getResonanceFrequency()[0]) for tsfile in self.touchstones
+        ]
         return results
 
     def getWaterFallDataList(self):
@@ -118,6 +144,17 @@ class TouchstoneList:
         with open(filename, "w", newline="") as file:
             writer = csv.writer(file)
             writer.writerows(data)
+
+    @classmethod
+    def loadTouchstoneListFromCSV(cls, filename):
+        fieldnames = ["timestamp", "resonanceFreq", "resonanceMag", "temp"]
+        tsl = TouchstoneList()
+        with open(filename, "r") as file:
+            reader = csv.reader(file)
+            for row in reader:
+                ts = Touchstone.loadCSVData(row)
+                tsl.addTouchstone(ts)
+        return tsl
 
     def __repr__(self):
         return f"================= Total Touchstones {len(self.touchstones)!r}\n".join(
