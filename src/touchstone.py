@@ -14,6 +14,7 @@ class Touchstone:
         self.resonanceFrequency = self.data[minIndex, 0].real
         self.resonanceMagnitude = minValue
         self.resonanceComplex = self.data[minIndex, 1]
+        self.resonancePhase = np.degrees(np.angle(self.resonanceComplex))
 
     def getFrequencyRange(self):
         return [z.real for z in self.data[:, 0]]
@@ -23,6 +24,9 @@ class Touchstone:
 
     def getTemperatureData(self):
         return self.temperatureData
+
+    def getPhaseAngle(self):
+        return np.degrees(np.angle(self.data[:, 1]))
 
     def addTemperatureData(self, data):
         self.temperatureData = data
@@ -55,7 +59,12 @@ class Touchstone:
         return ts
 
     def getResonanceFrequency(self):
-        return self.resonanceFrequency, self.resonanceMagnitude, self.resonanceComplex
+        return (
+            self.resonanceFrequency,
+            self.resonanceMagnitude,
+            self.resonanceComplex,
+            self.resonancePhase,
+        )
 
     def getIFFT(self):
         freq_range = self.getFrequencyRange()
@@ -131,6 +140,10 @@ class TouchstoneList:
 
     def getTemperatureDataList(self):
         results = [tsfile[0].getTemperatureData() for tsfile in self.touchstones]
+        return results
+
+    def getPhaseDataList(self):
+        results = [tsfile[0].getResonanceFrequency()[3] for tsfile in self.touchstones]
         return results
 
     def saveTouchstoneListAsCSV(self, filename):

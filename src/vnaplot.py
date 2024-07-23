@@ -34,6 +34,8 @@ class VNAPlot:
         self.ax5 = axs[1, 1]
         self.ax6 = axs[2, 1]
         self.ax7 = axs[0, 2]
+        self.ax8 = axs[1, 2]
+        self.ax9 = axs[2, 2]
 
         self.fig.set_size_inches(15, 10)
         (self.line1,) = self.ax1.plot([], [], "r-", linewidth=1)
@@ -42,6 +44,9 @@ class VNAPlot:
         (self.line5,) = self.ax5.plot([], [], linewidth=1, color="brown")
         (self.line6,) = self.ax6.plot([], [], linewidth=1, color="purple")
         (self.line7,) = self.ax7.plot([], [], linewidth=1, color="blue")
+        (self.line8,) = self.ax8.plot([], [], linewidth=1, color="yellow")
+        (self.line9,) = self.ax9.plot([], [], linewidth=1, color="yellow")
+
         # Generate sample data
         self.num_points_time = 120  # Two minutes of data
         self.num_points_frequency = 50
@@ -111,6 +116,20 @@ class VNAPlot:
         self.ax7.set_ylabel("Resonance Magnitude (Db)")
         self.ax7.legend()
         self.ax7.grid(True)
+        # Plot 8: Resonant Phase over time
+        self.ax8.set_xlim(1, config.bufferSize)
+        self.ax8.set_xlabel("timestep")
+        self.ax8.set_ylabel("Resonant Phase (Deg)")
+        self.ax8.legend()
+        self.ax8.grid(True)
+        # Plot 9: Phase Angle of Signal
+        self.ax9.set_xlim(config.freqStart * 1e9, config.freqEnd * 1e9)
+        self.ax9.set_ylim(-180, 180)
+        self.ax9.set_xlabel("Frequency (GHz)")
+        self.ax9.set_ylabel("Resonant Phase (Deg)")
+        self.ax9.set_title("Phase angle vs Freqnecy")
+        self.ax9.legend()
+        self.ax9.grid(True)
 
         # print(self.deltaMaxes)
 
@@ -172,6 +191,9 @@ class VNAPlot:
 
         self.line1.set_xdata(tsFile.getFrequencyRange())
         self.line1.set_ydata(tsFile.getDataMagnitude())
+        self.line9.set_xdata(tsFile.getFrequencyRange())
+        self.line9.set_ydata(tsFile.getPhaseAngle())
+        # self.touchstoneBuffer = np.hstack(
         # self.touchstoneBuffer = np.hstack(
         #     (self.touchstoneBuffer, tsFile.getDataMagnitude()[:, np.newaxis])
         # )
@@ -190,6 +212,11 @@ class VNAPlot:
             self.tsList.getTemperatureDataList(),
             self.ax5,
             self.line5,
+        )
+        updateBufferGraph(
+            self.tsList.getPhaseDataList(),
+            self.ax8,
+            self.line8,
         )
 
         updateWaterfallGraph(self.ax4, self.tsList.getWaterFallDataList())
@@ -249,7 +276,16 @@ class VNAPlot:
 
         # print(start_index, frame)
 
-        return (self.line1, self.line2, self.line3, self.line5, self.line6)
+        return (
+            self.line1,
+            self.line2,
+            self.line3,
+            self.line5,
+            self.line6,
+            self.line7,
+            self.line8,
+            self.line9,
+        )
 
     def data_gen():
         while True:
