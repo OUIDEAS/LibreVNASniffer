@@ -40,17 +40,17 @@ class Application:
             minDB=-70,
             IFBW=1000,
             bufferSize=10,
+            distance=None,
         )
-
         # Create and place input labels and entry boxes
-        self.create_input_box("Frequency start:", 0, defaultConfig.freqStart)
-        self.create_input_box("Frequency end:", 1, defaultConfig.freqEnd)
-        self.create_input_box("Number of points on a graph:", 2, defaultConfig.points)
-        self.create_input_box("Buffer size:", 3, defaultConfig.bufferSize)
-        self.create_input_box("Signal name (S**):", 4, defaultConfig.signalName)
-        self.create_input_box("Max db:", 5, defaultConfig.maxDB)
-        self.create_input_box("Min db:", 6, defaultConfig.minDB)
-        self.create_input_box("IFBW:", 7, defaultConfig.IFBW)
+        inputBoxCount = 0
+        for key, value in defaultConfig.data.items():
+            if value != None:
+                self.create_input_box(key, inputBoxCount, defaultConfig.data[key])
+                inputBoxCount += 1
+            else:
+                self.create_input_box(key, inputBoxCount)
+                inputBoxCount += 1
 
         # Add an Analyze button
         self.analyze_button = tk.Button(
@@ -68,25 +68,35 @@ class Application:
         self.openFileExplorerButton = tk.Button(
             self.buttonFrame, text="Open saved CSV", command=self.openFileExplorer
         )
+        buttons = [
+            self.analyze_button,
+            self.printTouchstoneListButton,
+            self.saveRunButton,
+            self.pauseRunButton,
+            self.openFileExplorerButton,
+        ]
+        buttonIndex = 0
+        for button in buttons:
+            button.grid(row=(buttonIndex // 2) + inputBoxCount, column=buttonIndex % 2)
+            buttonIndex += 1
 
-        self.pauseRunButton.grid(row=8, column=0, columnspan=1, pady=self.PADDING)
-        self.analyze_button.grid(row=8, column=1, columnspan=1, pady=self.PADDING)
-        self.printTouchstoneListButton.grid(
-            row=9, column=0, columnspan=1, pady=self.PADDING
-        )
-        self.saveRunButton.grid(row=9, column=1, columnspan=1, pady=self.PADDING)
-        self.openFileExplorerButton.grid(row=10, column=0, pady=self.PADDING)
         # Add a text widget to display results
         self.result_text = tk.Text(self.buttonFrame, height=10, width=50)
-        self.result_text.grid(row=11, column=0, columnspan=2, pady=self.PADDING)
+        self.result_text.grid(
+            row=inputBoxCount + (buttonIndex // 2) + 1,
+            column=0,
+            columnspan=2,
+            pady=self.PADDING,
+        )
 
-    def create_input_box(self, label_text, row, defaultValue):
+    def create_input_box(self, label_text, row, defaultValue=None):
         label = tk.Label(self.buttonFrame, text=label_text)
         label.grid(row=row, column=0, padx=10, pady=self.PADDING, sticky="e")
         entry = tk.Entry(self.buttonFrame)
         entry.grid(row=row, column=1, padx=10, pady=self.PADDING, sticky="w")
-        entry.insert(0, defaultValue)
-        setattr(self, f"entry_{row}", entry)
+        if defaultValue != None:
+            entry.insert(0, defaultValue)
+        setattr(self, f"entry_{label_text}", entry)
 
     def printTouchstones(self):
         print(self.tsList)
@@ -113,33 +123,49 @@ class Application:
         print("File Saving....")
         print(os.getcwd())
         now = datetime.now()
-        baseDirectory = "./data"
         prefix = "figure_"
+        timestamp = now.strftime("%Y%m%d_%H%M%S")
+
+        directory = self.getRunDirectory()
+        # Create the filename
+        figureFileName = f"{prefix}{timestamp}.png"
+        pickleFileName = f"pickle_{timestamp}.pkl"
+        csvFileName = f"csv_{timestamp}.csv"
+
+        # Full path to the file
+        figureFilePath = f"{directory}/{figureFileName}"
+        pickleFilePath = f"{directory}/{pickleFileName}"
+        csvFilePath = f"{directory}/{csvFileName}"
+
+        self.saveFigure(figureFilePath)
+        self.savePickle(pickleFilePath)
+        self.tsList.saveTouchstoneListAsCSV(csvFilePath)
+        self.getConfigFromUser().saveConfig(directory)
+
+        return directory
+
+    def saveFigure(self, dir):
+        # Save the figure
+        print("Saving figure")
+        self.fig.savefig(dir)
+        print("figure saved")
+
+    def savePickle(self, dir):
+        # Save the figure
+        print("Saving pickle")
+        with open(dir, "wb") as file:
+            pickle.dump(self.tsList, file)
+        print("pickle saved")
+
+    def getRunDirectory(self):
+        now = datetime.now()
+        baseDirectory = "./data"
         timestamp = now.strftime("%Y%m%d_%H%M%S")
         # Create the directory structure
         directory = f"{baseDirectory}/run-{timestamp}"
         if not os.path.exists(directory):
             os.makedirs(directory)
-        # Create the filename
-        file_name = f"{prefix}{timestamp}.png"
-        pickleFileName = f"pickle_{timestamp}.pkl"
-        csvFileName = f"csv_{timestamp}.csv"
-
-        # Full path to the file
-        file_path = f"{directory}/{file_name}"
-        pickleFilePath = f"{directory}/{pickleFileName}"
-        csvFilePath = f"{directory}/{csvFileName}"
-
-        # Save the figure
-        self.fig.savefig(file_path)
-        with open(pickleFilePath, "wb") as file:
-            pickle.dump(self.tsList, file)
-        print("File Saved")
-
-        # Save csv Data
-        self.tsList.saveTouchstoneListAsCSV(csvFilePath)
-
-        return file_path
+        return directory
 
     def openFileExplorer(self):
         file_path = filedialog.askopenfilename(
@@ -153,10 +179,16 @@ class Application:
             except Exception as e:
                 messagebox.showerror("Error", f"Failed to read CSV file: {e}")
         self.tsList = measurements
-        config = self.getConfigFromUser()
-        config.freqStart = self.tsList.getLastTouchstone().getFrequencyRange()[0] / 10e8
-        config.freqEnd = self.tsList.getLastTouchstone().getFrequencyRange()[-1] / 10e8
-        config.points = len(self.tsList.getLastTouchstone().getFrequencyRange())
+        modified_dir_string = file_path.rsplit("/", 1)[0]
+        print(modified_dir_string)
+        config = DataConfig.loadConfig(modified_dir_string)
+        config.data["freqStart"] = (
+            self.tsList.getLastTouchstone().getFrequencyRange()[0] / 10e8
+        )
+        config.data["freqEnd"] = (
+            self.tsList.getLastTouchstone().getFrequencyRange()[-1] / 10e8
+        )
+        config.data["points"] = len(self.tsList.getLastTouchstone().getFrequencyRange())
         self.displayPlot(config)
         return
 
@@ -179,7 +211,8 @@ class Application:
         self.VNAplot.update()
 
     def mainloop(self, frame):
-        self.dataCenter.getData(self.tsList, self.getConfigFromUser())
+        config = self.getConfigFromUser()
+        self.dataCenter.getData(self.tsList, config)
         self.VNAplot.update()
         return
 
@@ -189,14 +222,22 @@ class Application:
 
     def getConfigFromUser(self) -> DataConfig:
         # Retrieve input values
-        frequency_start = float(self.entry_0.get())
-        frequency_end = float(self.entry_1.get())
-        num_points = int(self.entry_2.get())
-        buffer_size = int(self.entry_3.get())
-        signal_name = self.entry_4.get()
-        max_db = float(self.entry_5.get())
-        min_db = float(self.entry_6.get())
-        IFBW = int(self.entry_7.get())
+        frequency_start = float(self.entry_freqStart.get())
+        frequency_end = float(self.entry_freqEnd.get())
+        signal_name = self.entry_signalName.get()
+        max_db = int(self.entry_maxDB.get())
+        min_db = int(self.entry_minDB.get())
+        IFBW = int(self.entry_IFBW.get())
+        buffer_size = int(self.entry_bufferSize.get())
+        distance = self.entry_distance.get()
+        if distance == "":
+            self.result_text.insert(tk.END, "No Default distance" + "\n")
+            return None
+        else:
+            print(distance)
+            distance = int(distance)
+        num_points = int(self.entry_points.get())
+
         result = (
             f"Frequency start: {frequency_start}\n"
             f"Frequency end: {frequency_end}\n"
@@ -206,6 +247,7 @@ class Application:
             f"Max db: {max_db}\n"
             f"Min db: {min_db}\n"
         )
+        self.result_text.insert(tk.END, result + "\n")
         config = DataConfig(
             frequency_start,
             frequency_end,
@@ -215,10 +257,14 @@ class Application:
             min_db,
             IFBW,
             buffer_size,
+            distance,
         )
         return config
 
     def analyze_frequency(self):
+        config = self.getConfigFromUser()
+        if config == None:
+            return
         try:
             self.dataCenter = DataCenter()
         except Exception:
@@ -226,11 +272,10 @@ class Application:
                 tk.END, "Cannot connect to devices, are they plugged in?" + "\n"
             )
             return
-
-        self.displayPlot(self.getConfigFromUser())
+        self.displayPlot(config)
         self.startLoop()
 
 
+app = Application()
 if __name__ == "__main__":
-    app = Application()
     app.root.mainloop()

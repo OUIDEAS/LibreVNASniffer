@@ -18,12 +18,12 @@ class DataCenter:
         tsFile = Touchstone(
             self.vna.requestFrequencySweep(
                 -10,
-                config.IFBW,
+                config.data["IFBW"],
                 1,
-                config.points,
-                config.freqStart,
-                config.freqEnd,
-                config.signalName,
+                config.data["points"],
+                config.data["freqStart"],
+                config.data["freqEnd"],
+                config.data["signalName"],
             )
         )
         tsFile.addTemperatureData(self.thermocouple.readTempatureCelsius())

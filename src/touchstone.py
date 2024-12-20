@@ -121,16 +121,6 @@ class TouchstoneList:
         else:
             return self.touchstones[-1][0]
 
-    def getResonanceMagnitudeList(self):
-        results = [tsfile[0].getResonanceFrequency()[1] for tsfile in self.touchstones]
-        return results
-
-    def getResonanceFrequencyList(self):
-        results = [
-            abs(tsfile[0].getResonanceFrequency()[0]) for tsfile in self.touchstones
-        ]
-        return results
-
     def getWaterFallDataList(self):
         numOfPoints = len(self.touchstones[0][0].getFrequencyRange())
         buffer = np.zeros((numOfPoints, 0))
@@ -142,11 +132,30 @@ class TouchstoneList:
         results = [tsfile[0].getTemperatureData() for tsfile in self.touchstones]
         return results
 
+    def getTemperatureRange(self):
+        temperature = self.getTemperatureDataList()
+        return [min(temperature), max(temperature)]
+
+    def getResonanceFrequencyList(self):
+        results = [
+            abs(tsfile[0].getResonanceFrequency()[0]) for tsfile in self.touchstones
+        ]
+        return results
+
+    def getResonanceMagnitudeList(self):
+        results = [tsfile[0].getResonanceFrequency()[1] for tsfile in self.touchstones]
+        return results
+
+    def getComplexDataList(self):
+        results = [tsfile[0].getResonanceFrequency()[2] for tsfile in self.touchstones]
+        return results
+
     def getPhaseDataList(self):
         results = [tsfile[0].getResonanceFrequency()[3] for tsfile in self.touchstones]
         return results
 
     def saveTouchstoneListAsCSV(self, filename):
+        print("saving csv")
         data = []
         for touchstone in self.touchstones:
             tsData = touchstone[0].getCSVData()
@@ -157,6 +166,18 @@ class TouchstoneList:
         with open(filename, "w", newline="") as file:
             writer = csv.writer(file)
             writer.writerows(data)
+        print("csv saved")
+
+    # finds the touchstone closest to the given temperature
+    def findTouchstoneByTemperature(self, temperature):
+        closestTouchstone = None
+        closestDistance = float("inf")
+        for touchstone in self.touchstones:
+            distance = abs(touchstone[0].getTemperatureData() - temperature)
+            if distance < closestDistance:
+                closestTouchstone = touchstone
+                closestDistance = distance
+        return closestTouchstone
 
     @classmethod
     def loadTouchstoneListFromCSV(cls, filename):
@@ -170,7 +191,7 @@ class TouchstoneList:
         return tsl
 
     def __repr__(self):
-        return f"================= Total Touchstones {len(self.touchstones)!r}\n".join(
+        return f"================= total touchstones {len(self.touchstones)!r}\n".join(
             [
                 f"{touchstone} recorded at {timestamp}"
                 for touchstone, timestamp in self.touchstones
