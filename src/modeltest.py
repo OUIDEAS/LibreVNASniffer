@@ -17,15 +17,16 @@ trainPaths = [
 print("Hello World")
 nnmodel = NNModel()
 lstmmodel = LSTMModel(10)
+lstmmodel.initModel()
 regressionmodel = RegressionModel()
 # models = [regressionmodel]
 # models = [nnmodel, lstmmodel, regressionmodel]
 models = [lstmmodel]
 for model in models:
-    history = model.miniBatchTrain(trainPaths)
+    (history, mae) = model.miniBatchTrain(trainPaths)
+    print(f"Model Finished! Validation mae: {mae}")
     if model == lstmmodel:
         model.plot_learning_curves(history)
-
 # for path in trainPaths:
 #     model.trainCSV(path)
 

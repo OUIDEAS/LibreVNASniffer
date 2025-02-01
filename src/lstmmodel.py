@@ -4,6 +4,8 @@ import tensorflow as tf
 from tensorflow.keras import regularizers
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import LSTM, Dense, Input, Dropout
+from tensorflow.keras.optimizers import Adam
+from tensorflow.keras.callbacks import EarlyStopping
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.metrics import r2_score, mean_absolute_error
@@ -15,10 +17,26 @@ import functools
 from enum import Enum
 from model import Model
 
+BASELAYERSIZE = 5000
+PATIENCE = 500
+
 
 class LSTMModel(Model):
-    def initModel(self):
+    def __init__(self, timesteps=10):
+        super().__init__()
+        self.timesteps = timesteps
+
+    def initModel(
+        self,
+        timesteps=10,
+        learning_rate=0.001,
+        neuronPct=0.01,
+        neuronShrink=1,
+        kernel_regularizer=0.001,
+        dropout=0.00,
+    ):
         if self.model is None:
+            self.timesteps = int(round(timesteps))
             print("Initializing LSTM Model")
             # Check if GPU is available
             gpus = tf.config.list_physical_devices("GPU")
@@ -31,22 +49,31 @@ class LSTMModel(Model):
                 [
                     Input(shape=(self.timesteps, 5)),  # Define input shape here
                     LSTM(
-                        50,
-                        activation="relu",
-                        kernel_regularizer=regularizers.l2(0.001),
+                        round(neuronPct * BASELAYERSIZE),
+                        activation="tanh",
+                        kernel_regularizer=regularizers.l2(kernel_regularizer),
                         return_sequences=True,
                     ),
-                    # Dropout(0.2),  # Drop 20% of the units
-                    LSTM(50, return_sequences=False),
-                    # Dropout(0.2),
+                    Dropout(dropout),  # Drop 20% of the units
+                    LSTM(
+                        round(neuronPct * BASELAYERSIZE * neuronShrink),
+                        return_sequences=False,
+                    ),
+                    Dropout(dropout),
                     Dense(1),
                 ]
             )
 
             self.model.compile(
-                optimizer="adam", loss="mean_squared_error", metrics=["mae"]
+                optimizer=Adam(
+                    learning_rate=learning_rate
+                ),  # Explicitly set learning rate
+                loss="mean_squared_error",
+                metrics=["mae"],
             )
             self.modelName = "LSTM Model"
+            print("Model initialized")
+            print(self.model.summary())
 
     def saveWeights(self):
         # Save the model weights
@@ -77,12 +104,26 @@ class LSTMModel(Model):
         yPred, yTest = super().finalizePrediction(yPred, yTest)
         return (yPred, yTest)
 
-    def trainOnDataset(self, dataset, validation_dataset):
+    def trainOnDataset(self, training_dataset, validation_dataset):
         if self.model is None:
             self.initModel()
-
-        # Train the model
-        history = self.model.fit(
-            dataset, epochs=self.epochs, validation_data=validation_dataset
+        monitor = EarlyStopping(
+            monitor="val_mae",
+            min_delta=1e-3,
+            patience=PATIENCE,
+            verbose=0,
+            mode="auto",
+            restore_best_weights=True,
         )
+        # Train the model
+        print("(LSTM) Training on dataset for ", self.epochs, " epochs")
+        history = self.model.fit(
+            training_dataset,
+            epochs=self.epochs,
+            validation_data=validation_dataset,
+            callbacks=[monitor],
+            verbose=0,
+        )
+        epochs = monitor.stopped_epoch
+        print(f"(LSTM) Stopped at epoch {epochs}")
         return history

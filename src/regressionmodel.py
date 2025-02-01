@@ -50,7 +50,7 @@ class RegressionModel(Model):
         yTest = yTest[self.timesteps :]
         return (yPred, yTest)
 
-    def trainOnDataset(self, dataset, validation_dataset):
+    def trainOnDataset(self, training_dataset, validation_dataset):
         if self.model is None:
             self.initModel()
         # Initialize empty lists to store the data
@@ -58,7 +58,7 @@ class RegressionModel(Model):
         y_list = []
 
         # Iterate through the dataset and append the values to the lists
-        for features, label in dataset:
+        for features, label in training_dataset:
             X_list.extend(features.numpy())  # Flatten the batch and append features
             y_list.extend(label.numpy())  # Flatten the batch and append labels
         # Train the model

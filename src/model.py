@@ -7,6 +7,7 @@ from tensorflow.keras.layers import LSTM, Dense, Input, Dropout
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.metrics import r2_score, mean_absolute_error
+from sklearn.metrics import mean_squared_error
 from sklearn.linear_model import LinearRegression
 import matplotlib.pyplot as plt
 from touchstone import Touchstone, TouchstoneList
@@ -15,17 +16,20 @@ import functools
 from enum import Enum
 import matplotlib.cm as cm
 
+EPOCHS = 100
+BUFFER_SIZE = 10000
+BATCH_SIZE = 20
+
 
 class Model:
-    def __init__(self, timesteps=10) -> None:
+    def __init__(self) -> None:
         self.model = None
-        self.timesteps = timesteps
         self.scaler_X = MinMaxScaler()
         self.scaler_y = MinMaxScaler()
-        self.validationRatio = 0.2
-        self.epochs = 500
-        self.buffer_size = 10000
-        self.batch_size = 20
+        self.validationRatio = 0.3
+        self.epochs = EPOCHS
+        self.buffer_size = BUFFER_SIZE
+        self.batch_size = BATCH_SIZE
         self.modelName = "Default Model name"
 
     def initModel(self):
@@ -129,43 +133,86 @@ class Model:
         )
         return concatenated_dataset
 
-    # Takes a list of csv paths and trains the model on each csv file
+    def print_dataset_info(self, name, dataset):
+        # Check if dataset is a TensorFlow Dataset
+        print(f"Dataset: {name}")
+        if isinstance(dataset, tf.data.Dataset):
+            print("\tDataset Type: TensorFlow Dataset")
+            # Inspect a single batch
+            for x, y in dataset.take(1):  # Take one batch
+                print("\tShape of input data:", x.shape)
+                print("\tShape of target data:", y.shape)
+                print("\tData types of input:", x.dtype)
+                print("\tData types of target:", y.dtype)
+                # print(
+                #     "Sample input data:", x.numpy()
+                # )  # Convert tensor to numpy array for display
+                # print("Sample target data:", y.numpy())
+        # Check if dataset is a NumPy array
+        elif isinstance(dataset, np.ndarray):
+            print("Dataset Type: NumPy Array")
+            print("Shape of dataset:", dataset.shape)
+            print("Data type:", dataset.dtype)
+            print("First 5 samples:", dataset[:5])  # Print first 5 samples
+        # Check if dataset is a pandas DataFrame
+        elif isinstance(dataset, pd.DataFrame):
+            print("Dataset Type: Pandas DataFrame")
+            print("Shape of dataset:", dataset.shape)
+            print("Data types of columns:\n", dataset.dtypes)
+            print("First 5 rows:\n", dataset.head())  # Print first 5 rows
+            print(
+                "Summary statistics:\n", dataset.describe()
+            )  # Summary stats for numerical columns
+        else:
+            print("Unsupported dataset type")
 
-    def miniBatchTrain(self, csvList):
-        if self.model is None:
-            self.initModel()
-        if self.model.fit is None:
-            raise NotImplementedError("model does not have a fit method")
-
+    # Takes a list of csv paths and turns it into a minibatched dataset
+    def datasetFromCSVList(self, csvList):
         datasetList = []
         for csv in csvList:
             touchstoneList = TouchstoneList.loadTouchstoneListFromCSV(csv)
             dataset = self.touchstoneToDataset(touchstoneList)
             print(f"Csv: {csv} has {len(dataset)} samples")
-            print(f"Element spec of {csv}:", dataset.element_spec)
+            # print(f"Element spec of {csv}:", dataset.element_spec)
             datasetList.append(dataset)
 
         combinedDataset = self.concatenateDatasets(datasetList)
         # Check the shape of dataset elements
         print("Element spec:", combinedDataset.element_spec)
         # combinedDataset = combinedDataset.batch(1)
-        total_samples = len(combinedDataset)
-        print(f"Total samples before shuffle: {total_samples}")
+        self.print_dataset_info("PreShuffle", combinedDataset)
         combinedDataset = self.shuffleDataset(combinedDataset)
+        self.print_dataset_info("PostShuffle", combinedDataset)
         combinedDataset = combinedDataset
 
         total_samples = len(combinedDataset)
         print(f"Total Batched samples after shuffle: {total_samples}")
+        return combinedDataset
 
+    # Splits a dataset into validation and training datasets
+    def splitDataset(self, dataset):
         # Create validation dataset
-        validation_size = int(0.2 * total_samples)
-        validation_dataset = combinedDataset.take(validation_size)
+        total_samples = len(dataset)
+        validation_size = int(self.validationRatio * total_samples)
+        validation_dataset = dataset.take(validation_size)
 
         # Create training dataset
-        training_dataset = combinedDataset.skip(validation_size)
+        training_dataset = dataset.skip(validation_size)
+        return training_dataset, validation_dataset
+
+    # Trains a model on a list of csv files
+    def miniBatchTrain(self, csvList):
+        if self.model is None:
+            self.initModel()
+        if self.model.fit is None:
+            raise NotImplementedError("model does not have a fit method")
+
+        combinedDataset = self.datasetFromCSVList(csvList)
+        training_dataset, validation_dataset = self.splitDataset(combinedDataset)
 
         history = self.trainOnDataset(training_dataset, validation_dataset)
-        return history
+        mae = self.predictOnDataset(validation_dataset)
+        return (history, mae)
 
     def shuffleDataset(self, dataset):
         # Shuffle and batch the dataset
@@ -184,6 +231,7 @@ class Model:
     def plot_learning_curves(self, history):
         # Set up the figure
         plt.figure(figsize=(18, 5))
+        plt.grid(True)
         scale_factor = self.scaler_y.data_max_ - self.scaler_y.data_min_
         # Loss plot
         plt.subplot(1, 3, 1)
@@ -219,5 +267,58 @@ class Model:
         plt.tight_layout()
         plt.show()
 
-    def trainOnDataset(self, dataset, validation_dataset):
+    def trainOnDataset(self, training_dataset, validation_dataset):
         raise NotImplementedError("Subclasses must implement this method")
+
+    def predictOnDataset(self, val_dataset):
+        # Calculate MAE on validation dataset
+        y_true = []
+        y_pred = []
+
+        # Iterate through the validation dataset
+        self.print_dataset_info("Validation Dataset", val_dataset)
+        for x_batch, y_batch in val_dataset:
+            # print(f"Input data shape: {x_batch.shape}")  # Should print (20, 10, 5)
+            # print(f"Target data shape: {y_batch.shape}")  # Should print (20, 1)
+            # print(type(x_batch))
+            # print(type(y_batch))
+            # self.print_dataset_info("Batch", x_batch)
+            # print("Making Predictions")
+            # Make predictions for the current batch
+            y_batch_pred = self.model.predict(x_batch)
+
+            # Store the true labels and predictions
+            yPredS, yTestS = self.finalizePrediction(y_batch_pred, y_batch)
+            y_true.append(yTestS)  # Convert from Tensor to numpy array
+            y_pred.append(yPredS)  # Predictions are already in numpy array format
+
+        # Flatten the lists to make sure we have a single array of predictions and true labels
+        y_true = np.concatenate(y_true, axis=0)
+        y_pred = np.concatenate(y_pred, axis=0)
+
+        print("y_true")
+        print(y_true.shape)
+        # print(y_true)
+        print("y_pred")
+        print(y_pred.shape)
+        # print(y_pred)
+
+        plt.figure(figsize=(10, 6))
+        plt.plot(y_true, label="True Values", color="b")
+        plt.plot(y_pred, label="Predicted Values", color="r", linestyle="--")
+
+        # Adding labels and a legend
+        plt.xlabel("Index")
+        plt.ylabel("Value")
+        plt.title("True vs Predicted Values")
+        plt.legend()
+
+        # Show the plot
+        plt.show()
+
+        # Calculate the Mean Absolute Error
+        mae_tf = tf.keras.losses.MeanAbsoluteError()
+        mae_value = mae_tf(y_true, y_pred).numpy()
+        print(f"MAE without scaling factor: {mae_value}")
+
+        return mae_value

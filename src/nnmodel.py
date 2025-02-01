@@ -72,12 +72,12 @@ class NNModel(Model):
         yTest = yTest[self.timesteps :]
         return (yPred, yTest)
 
-    def trainOnDataset(self, dataset, validation_dataset):
+    def trainOnDataset(self, training_dataset, validation_dataset):
         if self.model is None:
             self.initModel()
 
         # Train the model
         history = self.model.fit(
-            dataset, epochs=self.epochs, validation_data=validation_dataset
+            training_dataset, epochs=self.epochs, validation_data=validation_dataset
         )
         return history
