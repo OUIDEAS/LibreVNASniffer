@@ -93,9 +93,9 @@ class Model:
         for sample in dataset.take(1):
             sample_shape = sample[0].shape
             if hasattr(self.model, "input_shape"):
-                assert (
-                    sample_shape == self.model.input_shape[1:]
-                ), f"Dataset shape {sample_shape} does not match the expected input shape {self.model.input_shape[1:]}"
+                assert sample_shape == self.model.input_shape[1:], (
+                    f"Dataset shape {sample_shape} does not match the expected input shape {self.model.input_shape[1:]}"
+                )
         return dataset
 
     def predictTouchstone(self, touchstone: TouchstoneList):
@@ -184,7 +184,7 @@ class Model:
     def plot_learning_curves(self, history):
         # Set up the figure
         plt.figure(figsize=(18, 5))
-
+        scale_factor = self.scaler_y.data_max_ - self.scaler_y.data_min_
         # Loss plot
         plt.subplot(1, 3, 1)
         plt.plot(history.history["val_loss"], label="Validation Loss")
@@ -195,9 +195,11 @@ class Model:
         plt.legend()
 
         # Mean Absolute Error (MAE) plot
+        historyOriginalMAE = history.history["mae"] * scale_factor
+        historyOriginalValMAE = history.history["val_mae"] * scale_factor
         plt.subplot(1, 3, 2)
-        plt.plot(history.history["val_mae"], label="Validation MAE")
-        plt.plot(history.history["mae"], label="Training MAE")
+        plt.plot(historyOriginalValMAE, label="Validation MAE")
+        plt.plot(historyOriginalMAE, label="Training MAE")
         plt.title("Mean Absolute Error (MAE)")
         plt.xlabel("Epochs")
         plt.ylabel("MAE")

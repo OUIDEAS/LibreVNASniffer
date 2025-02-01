@@ -19,10 +19,12 @@ nnmodel = NNModel()
 lstmmodel = LSTMModel(10)
 regressionmodel = RegressionModel()
 # models = [regressionmodel]
-models = [nnmodel, lstmmodel, regressionmodel]
+# models = [nnmodel, lstmmodel, regressionmodel]
+models = [lstmmodel]
 for model in models:
     history = model.miniBatchTrain(trainPaths)
-    # model.plot_learning_curves(history)
+    if model == lstmmodel:
+        model.plot_learning_curves(history)
 
 # for path in trainPaths:
 #     model.trainCSV(path)

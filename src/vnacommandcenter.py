@@ -36,6 +36,9 @@ class VNACommandCenter:
         # grab the data of trace S11
         # print("Reading trace data...")
         data = self.vna.query(":VNA:TRACE:DATA? " + signal)
+        if data == ["EMPTY"]:
+            print("Empty data received, aborting")
+            return None
         return self.vna.parse_VNA_trace_data(data)
 
     def isConnected(self):

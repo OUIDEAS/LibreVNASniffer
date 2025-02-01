@@ -34,8 +34,8 @@ class Application:
         defaultConfig = DataConfig(
             freqStart=3.0,
             freqEnd=4.0,
-            points=100,
-            signalName="S11TG",
+            points=4000,
+            signalName="S21TG",
             maxDB=0,
             minDB=-70,
             IFBW=1000,
@@ -141,7 +141,7 @@ class Application:
         self.savePickle(pickleFilePath)
         self.tsList.saveTouchstoneListAsCSV(csvFilePath)
         self.getConfigFromUser().saveConfig(directory)
-
+        print("===File Saved===")
         return directory
 
     def saveFigure(self, dir):

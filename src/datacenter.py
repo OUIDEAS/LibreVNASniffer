@@ -2,6 +2,7 @@ from vnacommandcenter import VNACommandCenter
 from thermocouple import Thermocouple
 from touchstone import Touchstone, TouchstoneList
 from dataconfig import DataConfig
+import numpy as np
 
 
 class DataCenter:
@@ -13,20 +14,47 @@ class DataCenter:
             raise
         return
 
+    # Checks if the resonance frequency is within 4 Standard Deviations of the mean for the current tsList
+    def checkForInvalidData(self, tsFile: Touchstone, tsList: TouchstoneList):
+        if len(tsList.touchstones) < 20:
+            return False
+
+        mean = np.mean(tsList.getResonanceFrequencyList())
+        std = np.std(tsList.getResonanceFrequencyList())
+        distance = abs(tsFile.getResonanceFrequency()[0] - mean)
+        if distance > 10 * std:
+            print(
+                "Invalid Data with resonance freqnecy of ",
+                tsFile.getResonanceFrequency()[0] / 1e9,
+                " Was removed for being too far from the mean",
+                mean / 1e9,
+                " by ",
+                distance / 1e9,
+                "where the max is",
+                10 * std / 1e9,
+                " away",
+            )
+            return True
+        else:
+            return False
+
     def getData(self, tsList, config: DataConfig):
         # Get new data from VNA
-        tsFile = Touchstone(
-            self.vna.requestFrequencySweep(
-                -10,
-                config.data["IFBW"],
-                1,
-                config.data["points"],
-                config.data["freqStart"],
-                config.data["freqEnd"],
-                config.data["signalName"],
-            )
+        data = self.vna.requestFrequencySweep(
+            -2,
+            config.data["IFBW"],
+            1,
+            config.data["points"],
+            config.data["freqStart"],
+            config.data["freqEnd"],
+            config.data["signalName"],
         )
+        if data is None:
+            return
+        tsFile = Touchstone(data)
         tsFile.addTemperatureData(self.thermocouple.readTempatureCelsius())
+        if self.checkForInvalidData(tsFile, tsList):
+            return
         tsList.addTouchstone(tsFile)
 
     def attachThermocouple(self, thermocouple):

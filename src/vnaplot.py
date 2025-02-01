@@ -26,6 +26,8 @@ class VNAPlot:
         # Config
         np.set_printoptions(precision=10)
         self.markers = []
+        self.lineOfBestFit = None
+        self.texts = []
         self.config = config
         self.tsList = tsList
 
@@ -169,7 +171,7 @@ class VNAPlot:
 
         # Add each stat string to the axis
         for i, stat in enumerate(stat_strings):
-            self.axStats.text(
+            text = self.axStats.text(
                 x_pos,
                 y_pos - i * 0.05,
                 stat,
@@ -177,6 +179,7 @@ class VNAPlot:
                 ha="left",
                 transform=self.axStats.transAxes,
             )
+            self.texts.append(text)
 
     def update(self):
         try:
@@ -190,6 +193,15 @@ class VNAPlot:
             marker[0].remove()
             marker[1].remove()
         self.markers.clear()
+
+        for text in self.texts:
+            text.remove()
+        self.texts.clear()
+
+        # Remove Line of Best Fit
+        if self.lineOfBestFit is not None:
+            self.lineOfBestFit.remove()
+            self.lineOfBestFit = None
 
         # Global Stats
         # Shows the resonance frequency during first 10 timesteps (avg)
@@ -282,6 +294,8 @@ class VNAPlot:
         self.axMultiLine.set_ylabel("Magnitude")
         self.axMultiLine.grid(True)  # Optional: Add grid for better readability
         # Configure the legend
+        if self.axMultiLine.get_legend() is not None:
+            self.axMultiLine.get_legend().remove()
         legend = self.axMultiLine.legend(
             fontsize="small", loc="upper left"
         )  # Change 'small' to desired size
@@ -363,7 +377,36 @@ class VNAPlot:
         # add line of best fit to scatter plot
         x = np.linspace(min_temp, max_temp, 100)
         y = model.predict(x.reshape(-1, 1))
-        self.ax6.plot(x, y, color="red")
+        (self.lineOfBestFit,) = self.ax6.plot(x, y, color="red")
+        # Add slope as text near the line
+        text = self.ax6.text(
+            0.95,
+            0.95,  # Coordinates in figure-relative (normalized) units
+            f"Slope(MHz/°C) = {(slope * 1e-6):.3f}",
+            color="red",
+            fontsize=10,
+            ha="right",  # Align text to the right
+            va="top",  # Align text to the top
+            transform=self.ax6.transAxes,  # Use axes-relative coordinates
+        )
+        # add Slope as text for deletion
+        self.texts.append(text)
+        # Calculate the R^2 score
+        if len(resonanceFrequency) > 2:
+            r2_score = model.score(X, resonanceFrequency)
+            # Add R^2 as text near the line
+            text = self.ax6.text(
+                0.95,
+                0.85,  # Coordinates in figure-relative (normalized) units
+                f"$R^2$ = {r2_score:.3f}",
+                color="red",
+                fontsize=10,
+                ha="right",  # Align text to the right
+                va="top",  # Align text to the top
+                transform=self.ax6.transAxes,  # Use axes-relative coordinates
+            )
+            # add Slope as text for deletion
+            self.texts.append(text)
 
         self.ax7.scatter(
             temperature,
@@ -399,7 +442,7 @@ class VNAPlot:
         text = self.ax1.text(
             minX,
             minY,
-            f"{minX.real/10e8:.2f}GHz" + ", " + f"{minY:.2f}",
+            f"{minX.real / 10e8:.2f}GHz" + ", " + f"{minY:.2f}",
             fontsize=12,
             ha="right",
         )
