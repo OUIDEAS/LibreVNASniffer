@@ -369,6 +369,8 @@ class VNAPlot:
         # Step 4: Print the slope
         print(f"Weighted slope of Frequency with respect to Temperature: {slope}")
 
+        self.ax6.clear()
+
         self.ax6.scatter(
             temperature,
             resonanceFrequency,
@@ -413,11 +415,12 @@ class VNAPlot:
             # add Slope as text for deletion
             self.texts.append(text)
 
+        self.ax7.clear()
         self.ax7.scatter(
             temperature,
             resonanceMagnitude,
             color="blue",
-            label="temp vs resonance",
+            label="temp vs resonance mag",
         )
 
         def linear_fit(x, m, b):
@@ -440,6 +443,17 @@ class VNAPlot:
 
         self.ax6.set_title("Temperature vs Resonance Frequency")
         self.ax7.set_title("Temperature vs Resonance Mangnitude")
+        # Plot 6: Temperature vs Resonance Frequency
+        self.ax6.set_xlabel("Temperature (°C)")
+        self.ax6.set_ylabel("Resonance Frequency (Hz)")
+        # self.ax6.legend()
+        self.ax6.grid(True)
+        # Plot 7: Temperature vs Resonance Frequency
+        self.ax7.set_xlabel("Temperature (°C)")
+        self.ax7.set_ylabel("Resonance Magnitude (Db)")
+        # self.ax7.legend()
+        self.ax7.grid(True)
+
         # Append Marker
         minX = tsFile.getResonanceFrequency()[0]
         minY = tsFile.getResonanceFrequency()[1]

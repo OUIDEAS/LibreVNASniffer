@@ -16,7 +16,7 @@ import functools
 from enum import Enum
 import matplotlib.cm as cm
 
-EPOCHS = 100
+EPOCHS = 750
 BUFFER_SIZE = 10000
 BATCH_SIZE = 20
 
