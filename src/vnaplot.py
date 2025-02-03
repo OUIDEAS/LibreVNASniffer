@@ -375,7 +375,9 @@ class VNAPlot:
             label="temp vs resonance",
         )
         # add line of best fit to scatter plot
+        print("Creating line of best fit linespace")
         x = np.linspace(min_temp, max_temp, 100)
+        print("Predicting y values for line of best fit")
         y = model.predict(x.reshape(-1, 1))
         (self.lineOfBestFit,) = self.ax6.plot(x, y, color="red")
         # Add slope as text near the line
@@ -393,8 +395,10 @@ class VNAPlot:
         self.texts.append(text)
         # Calculate the R^2 score
         if len(resonanceFrequency) > 2:
+            print("Calculating R^2 score")
             r2_score = model.score(X, resonanceFrequency)
             # Add R^2 as text near the line
+            print("Adding R^2 score to plot")
             text = self.ax6.text(
                 0.95,
                 0.85,  # Coordinates in figure-relative (normalized) units
@@ -449,7 +453,9 @@ class VNAPlot:
         self.markers.append((marker[0], text))
 
         # Update stats
+        print("Updating stats")
         self.printStats()
+        print("Plot Update Complete, Fetching next data")
 
         # print(start_index, frame)
 
