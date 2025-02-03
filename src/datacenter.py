@@ -40,6 +40,7 @@ class DataCenter:
 
     def getData(self, tsList, config: DataConfig):
         # Get new data from VNA
+        print("Polling VNA for new data")
         data = self.vna.requestFrequencySweep(
             -2,
             config.data["IFBW"],
@@ -52,9 +53,12 @@ class DataCenter:
         if data is None:
             return
         tsFile = Touchstone(data)
+        print("Polling Thermocouple for new data")
         tsFile.addTemperatureData(self.thermocouple.readTempatureCelsius())
+        print("Polling Finished, Checking for valid data")
         if self.checkForInvalidData(tsFile, tsList):
             return
+        print("Data is valid, adding to tsList")
         tsList.addTouchstone(tsFile)
 
     def attachThermocouple(self, thermocouple):
