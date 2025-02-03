@@ -4,6 +4,8 @@ from touchstone import Touchstone, TouchstoneList
 from dataconfig import DataConfig
 import numpy as np
 
+TIMESTEPS_CUTOFF = 50
+
 
 class DataCenter:
     def __init__(self):
@@ -16,13 +18,13 @@ class DataCenter:
 
     # Checks if the resonance frequency is within 4 Standard Deviations of the mean for the current tsList
     def checkForInvalidData(self, tsFile: Touchstone, tsList: TouchstoneList):
-        if len(tsList.touchstones) < 20:
+        if len(tsList.touchstones) < TIMESTEPS_CUTOFF:
             return False
 
         mean = np.mean(tsList.getResonanceFrequencyList())
         std = np.std(tsList.getResonanceFrequencyList())
         distance = abs(tsFile.getResonanceFrequency()[0] - mean)
-        if distance > 10 * std:
+        if distance > 4 * std:
             print(
                 "Invalid Data with resonance freqnecy of ",
                 tsFile.getResonanceFrequency()[0] / 1e9,
