@@ -12,11 +12,14 @@ from thermocouple import Thermocouple
 from dataconfig import DataConfig
 from datacenter import DataCenter
 from matplotlib.animation import FuncAnimation
+import time
 
 
 # Base Gui Application
 class Application:
     def __init__(self):
+        self.start_time = time.time()  # Start timer
+
         self.tsList = TouchstoneList()
         self.PADDING = 2
         self.root = tk.Tk()
@@ -211,6 +214,8 @@ class Application:
         self.VNAplot.update()
 
     def mainloop(self, frame):
+        elapsed_time = time.time() - self.start_time  # End timer
+        print(f"Figure Render time: {elapsed_time}")
         print("(gui.py) Starting Loop")
         print("(gui.py) Getting Config")
         config = self.getConfigFromUser()
@@ -219,6 +224,7 @@ class Application:
         print("(gui.py) updating plot Data")
         self.VNAplot.update()
         print("(gui.py) Loop Complete")
+        self.start_time = time.time()  # Start timer
         return
 
     def startLoop(self):
