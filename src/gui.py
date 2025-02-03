@@ -211,9 +211,14 @@ class Application:
         self.VNAplot.update()
 
     def mainloop(self, frame):
+        print("(gui.py) Starting Loop")
+        print("(gui.py) Getting Config")
         config = self.getConfigFromUser()
+        print("(gui.py) Getting Data")
         self.dataCenter.getData(self.tsList, config)
+        print("(gui.py) updating plot Data")
         self.VNAplot.update()
+        print("(gui.py) Loop Complete")
         return
 
     def startLoop(self):

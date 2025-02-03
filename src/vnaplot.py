@@ -270,6 +270,7 @@ class VNAPlot:
 
         if abs(max_temp - min_temp) > 50:
             print("Data qualifies for multi line plot")
+            self.axMultiLine.clear()
             # Loop through each temperature in the tempList
             for temp, color in zip(tempList, colors):
                 # Find the corresponding Touchstone file for the current temperature
