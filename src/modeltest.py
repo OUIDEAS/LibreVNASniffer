@@ -4,19 +4,7 @@ from model import Model
 import matplotlib.pyplot as plt
 from modelplotter import ModelPlotter
 from regressionmodel import RegressionModel
-
-# Below are a list of csv paths inside a list variable we use to train from multiple csv files
-trainPaths = [
-    "./data/run-20240815_152530/csv_20240815_152530.csv",
-    "./data/run-20240815_145106/csv_20240815_145106.csv",
-    "./data/run-20240712_160241/csv_20240712_160241.csv",
-    "./data/run-20240710_154651/csv_20240710_154651.csv",
-    # New batch
-    "./data/run-20250203_151400/csv_20250203_151400.csv",
-    "./data/run-20250203_141918/csv_20250203_141918.csv",
-    "./data/run-20250130_183659/csv_20250130_183659.csv",
-    "./data/run-20250130_174201/csv_20250130_174201.csv",
-]
+from csvList import trainPaths, validationPaths
 
 
 print("Hello World")
@@ -39,7 +27,7 @@ for model in models:
 # input()
 
 
-for path in trainPaths:
+for path in validationPaths:
     fig1 = ModelPlotter.plotEstimateOnCSV(models, path)
     plt.show()
 

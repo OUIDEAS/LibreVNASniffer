@@ -9,38 +9,40 @@ from regressionmodel import RegressionModel
 import tensorflow.keras
 import numpy as np
 import tensorflow as tf
+from csvList import trainPaths, validationPaths
 
+TIMESTEPS = 10
 
 print("Num GPUs Available: ", len(tf.config.experimental.list_physical_devices("GPU")))
 print("Hello World")
+lstmmodel = LSTMModel(TIMESTEPS)
+lstmmodel.initModel()
+combinedDataset = lstmmodel.datasetFromCSVList(trainPaths)
+training_dataset, validation_dataset = lstmmodel.splitDataset(combinedDataset)
+# get scalers
+xScale, yScale = lstmmodel.getScalers()
 
 
 def evaluate_network(
-    dropout, learning_rate, neuronPct, neuronShrink, timesteps, kernel_regularizer
+    dropout, learning_rate, neuronPct, neuronShrink, kernel_regularizer
 ):
     start_time = time.time()
     # Below are a list of csv paths inside a list variable we use to train from multiple csv files
-    csvList = [
-        "./data/run-20240815_152530/csv_20240815_152530.csv",
-        "./data/run-20240815_145106/csv_20240815_145106.csv",
-        "./data/run-20240712_160241/csv_20240712_160241.csv",
-        "./data/run-20240710_154651/csv_20240710_154651.csv",
-    ]
 
     print("Hello World")
     nnmodel = NNModel()
     lstmmodel = LSTMModel()
     lstmmodel.initModel(
-        timesteps, learning_rate, neuronPct, neuronShrink, kernel_regularizer, dropout
+        TIMESTEPS, learning_rate, neuronPct, neuronShrink, kernel_regularizer, dropout
     )
-    combinedDataset = lstmmodel.datasetFromCSVList(csvList)
-    training_dataset, validation_dataset = lstmmodel.splitDataset(combinedDataset)
+    lstmmodel.setScalers(xScale, yScale)
+
     print("===========(BaysianOP)Evaluating network with parameters:")
     print(f"dropout: {dropout}")
     print(f"learning_rate: {learning_rate}")
     print(f"neuronPct: {neuronPct}")
     print(f"neuronShrink: {neuronShrink}")
-    print(f"timesteps: {timesteps}")
+    print(f"timesteps: {TIMESTEPS}")
     print(f"kernel_regularizer: {kernel_regularizer}")
     print("===========(BaysianOP)Training on dataset")
     lstmmodel.print_dataset_info("Training dataset", training_dataset)
@@ -77,11 +79,10 @@ def hms_string(sec_elapsed):
 #     "kernel_regularizer": (0.0001, 0.01),
 # }
 pbounds = {
-    "dropout": (0.0, 0.001),
+    "dropout": (0.0, 0.002),
     "learning_rate": (0.0009, 0.0011),
-    "neuronPct": (0.005, 0.015),
-    "neuronShrink": (0.8, 1),
-    "timesteps": (6, 10),
+    "neuronPct": (0.005, 0.10),
+    "neuronShrink": (0.4, 1),
     "kernel_regularizer": (0.0009, 0.0011),
 }
 
@@ -96,8 +97,8 @@ optimizer = BayesianOptimization(
 
 start_time = time.time()
 optimizer.maximize(
-    init_points=10,
-    n_iter=20,
+    init_points=20,
+    n_iter=25,
 )
 time_took = time.time() - start_time
 

@@ -31,27 +31,43 @@ class Model:
         self.buffer_size = BUFFER_SIZE
         self.batch_size = BATCH_SIZE
         self.modelName = "Default Model name"
+        self.acceptedFeatures = [
+            "resonanceFrequency",
+            "resonanceMagnitude",
+            "resonancePhase",
+            "resonanceReal",
+            "resonanceImag",
+        ]
 
     def initModel(self):
         raise NotImplementedError("Subclasses must implement this method")
 
+    # Gets the scalars for the X and y values
+    def getScalers(self):
+        return self.scaler_X, self.scaler_y
+
+    # sets the scalars for the X and y values
+    def setScalers(self, scaler_X, scaler_y):
+        self.scaler_X = scaler_X
+        self.scaler_y = scaler_y
+
     def featuresFromTouchstone(self, touchstone: TouchstoneList):
-        resonanceFrequency = touchstone.getResonanceFrequencyList()
-        resonanceMagnitude = touchstone.getResonanceMagnitudeList()
-        resonancePhase = touchstone.getPhaseDataList()
-        resonanceComplex = touchstone.getComplexDataList()
-        resonanceReal = [c.real for c in resonanceComplex]
-        resonanceImag = [c.imag for c in resonanceComplex]
-        data = np.array(
-            [
-                resonanceFrequency,
-                resonanceMagnitude,
-                resonancePhase,
-                resonanceReal,
-                resonanceImag,
-            ]
-        ).T
-        data = data.tolist()
+        feature_map = {
+            "resonanceFrequency": touchstone.getResonanceFrequencyList(),
+            "resonanceMagnitude": touchstone.getResonanceMagnitudeList(),
+            "resonancePhase": touchstone.getPhaseDataList(),
+            "resonanceReal": [c.real for c in touchstone.getComplexDataList()],
+            "resonanceImag": [c.imag for c in touchstone.getComplexDataList()],
+        }
+
+        # Filter features based on acceptedFeatures
+        selected_features = [
+            feature_map[key] for key in self.acceptedFeatures if key in feature_map
+        ]
+
+        # Convert to NumPy array and transpose
+        data = np.array(selected_features).T.tolist()
+
         X = data
         y = np.array(touchstone.getTemperatureDataList())
         return X, y
@@ -303,18 +319,18 @@ class Model:
         print(y_pred.shape)
         # print(y_pred)
 
-        plt.figure(figsize=(10, 6))
-        plt.plot(y_true, label="True Values", color="b")
-        plt.plot(y_pred, label="Predicted Values", color="r", linestyle="--")
+        # plt.figure(figsize=(10, 6))
+        # plt.plot(y_true, label="True Values", color="b")
+        # plt.plot(y_pred, label="Predicted Values", color="r", linestyle="--")
 
-        # Adding labels and a legend
-        plt.xlabel("Index")
-        plt.ylabel("Value")
-        plt.title("True vs Predicted Values")
-        plt.legend()
+        # # Adding labels and a legend
+        # plt.xlabel("Index")
+        # plt.ylabel("Value")
+        # plt.title("True vs Predicted Values")
+        # plt.legend()
 
-        # Show the plot
-        plt.show()
+        # # Show the plot
+        # plt.show()
 
         # Calculate the Mean Absolute Error
         mae_tf = tf.keras.losses.MeanAbsoluteError()

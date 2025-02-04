@@ -47,7 +47,9 @@ class LSTMModel(Model):
 
             self.model = Sequential(
                 [
-                    Input(shape=(self.timesteps, 5)),  # Define input shape here
+                    Input(
+                        shape=(self.timesteps, len(self.acceptedFeatures))
+                    ),  # Define input shape here
                     LSTM(
                         round(neuronPct * BASELAYERSIZE),
                         activation="tanh",
