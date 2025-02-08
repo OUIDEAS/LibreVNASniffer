@@ -16,15 +16,15 @@ import seaborn as sns
 import functools
 from enum import Enum
 from model import Model
+from dataset import Dataset
 
 BASELAYERSIZE = 5000
 PATIENCE = 500
 
 
 class LSTMModel(Model):
-    def __init__(self, timesteps=10):
+    def __init__(self):
         super().__init__()
-        self.timesteps = timesteps
 
     def initModel(
         self,
@@ -34,6 +34,7 @@ class LSTMModel(Model):
         neuronShrink=1,
         kernel_regularizer=0.001,
         dropout=0.00,
+        numOfFeatures=5,
     ):
         if self.model is None:
             self.timesteps = int(round(timesteps))
@@ -48,7 +49,7 @@ class LSTMModel(Model):
             self.model = Sequential(
                 [
                     Input(
-                        shape=(self.timesteps, len(self.acceptedFeatures))
+                        shape=(self.timesteps, numOfFeatures)
                     ),  # Define input shape here
                     LSTM(
                         round(neuronPct * BASELAYERSIZE),
@@ -84,29 +85,46 @@ class LSTMModel(Model):
         # Save the entire model (optional)
         self.model.save("lstm.model.h5")
 
-    def formatFeaturesforModel(self, X, y):
-        X_scaled = self.scaler_X.fit_transform(X)
+    def formatFeaturesForModel(self, X, y):
+        X, y = Dataset.formatFeatures(X, y)
+        X, _ = self.scaler.fitAndScaleFeatures(X=X, y=None)
+        _, y = self.scaler.scaleFeatures(X=None, y=y)
+        X, y = Dataset.timestepFeatures(self.timesteps, X, y)
+        return X, y
 
-        # Optionally normalize the target (y)
-        y_scaled = self.scaler_y.fit_transform(y.reshape(-1, 1))
-        # Reshape input data to 3D for LSTM (samples, timesteps, features)
-        X_lstm = []
-        y_lstm = []
+    # def formatFeaturesforModel(self, X, y):
+    #     X_scaled = self.scaler_X.fit_transform(X)
 
-        for i in range(self.timesteps, len(X_scaled)):
-            X_lstm.append(X_scaled[i - self.timesteps : i])
-            y_lstm.append(y_scaled[i])
+    #     # Optionally normalize the target (y)
+    #     y_scaled = self.scaler_y.fit_transform(y.reshape(-1, 1))
+    #     # Reshape input data to 3D for LSTM (samples, timesteps, features)
+    #     X_lstm = []
+    #     y_lstm = []
 
-        X_model = np.array(X_lstm)
-        y_model = np.array(y_lstm)
+    #     for i in range(self.timesteps, len(X_scaled)):
+    #         X_lstm.append(X_scaled[i - self.timesteps : i])
+    #         y_lstm.append(y_scaled[i])
 
-        return X_model, y_model
+    #     X_model = np.array(X_lstm)
+    #     y_model = np.array(y_lstm)
 
-    def finalizePrediction(self, yPred, yTest):
-        yPred, yTest = super().finalizePrediction(yPred, yTest)
-        return (yPred, yTest)
+    #     return X_model, y_model
 
-    def trainOnDataset(self, training_dataset, validation_dataset):
+    # def finalizePrediction(self, yPred, yTest):
+    #     yPred, yTest = super().finalizePrediction(yPred, yTest)
+    #     return (yPred, yTest)
+
+    def getTFDatasetFromDataset(self, dataset: Dataset):
+        if dataset.timesteps == self.timesteps:
+            return dataset.dataset
+        else:
+            raise ValueError("Dataset timesteps do not match model timesteps")
+
+    def trainOnDataset(self, dataset: Dataset, split, epochs):
+        # Split the dataset
+        training_dataset, validation_dataset = Dataset.splitDataset(
+            dataset.dataset, split
+        )
         if self.model is None:
             self.initModel()
         monitor = EarlyStopping(
@@ -118,14 +136,27 @@ class LSTMModel(Model):
             restore_best_weights=True,
         )
         # Train the model
-        print("(LSTM) Training on dataset for ", self.epochs, " epochs")
+        print("(LSTM) Training on dataset for ", epochs, " epochs")
         history = self.model.fit(
             training_dataset,
-            epochs=self.epochs,
+            epochs=epochs,
             validation_data=validation_dataset,
             callbacks=[monitor],
             verbose=0,
         )
-        epochs = monitor.stopped_epoch
-        print(f"(LSTM) Stopped at epoch {epochs}")
+
+        # Track the best epoch during training
+        best_val_mae = float("inf")
+        best_epoch = 0
+        for epoch, val_mae in enumerate(history.history["val_mae"]):
+            if val_mae < best_val_mae:
+                best_val_mae = val_mae
+                best_epoch = epoch
+
+        stoppedepoch = monitor.stopped_epoch
+        print(f"(LSTM) Best epoch: {best_epoch}")
+        print(f"(LSTM) Stopped at epoch {stoppedepoch}")
+
+        self.setScaler(dataset.getScaler())
+
         return history

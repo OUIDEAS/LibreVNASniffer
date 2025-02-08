@@ -5,53 +5,69 @@ import numpy as np
 import pandas as pd
 from sklearn.preprocessing import MinMaxScaler
 from touchstone import Touchstone, TouchstoneList
+import tensorflow as tf
+from scaler import Scaler
 
 
 EPOCHS = 750
 BUFFER_SIZE = 10000
 BATCH_SIZE = 20
+TIMESTEPS = 10
 
 
 class Dataset:
-    def __init__(self, epochs=EPOCHS, buffer_size=BUFFER_SIZE, batch_size=BATCH_SIZE):
-        self.scaler_X = MinMaxScaler()
-        self.scaler_y = MinMaxScaler()
-        self.validationRatio = 0.3
+    acceptedFeatures = [
+        "resonanceFrequency",
+        # "deltaResonanceFrequency",
+        "resonanceMagnitude",
+        "resonancePhase",
+        "resonanceReal",
+        "resonanceImag",
+    ]
+
+    def __init__(
+        self, timesteps=TIMESTEPS, buffer_size=BUFFER_SIZE, batch_size=BATCH_SIZE
+    ):
+        self.scaler = Scaler()
         self.buffer_size = BUFFER_SIZE
         self.batch_size = BATCH_SIZE
-        self.epochs = EPOCHS
-        self.acceptedFeatures = [
-            "resonanceFrequency",
-            "resonanceMagnitude",
-            "resonancePhase",
-            "resonanceReal",
-            "resonanceImag",
-        ]
+        self.timesteps = timesteps
+        # self.epochs = EPOCHS
 
-    def __len__(self):
-        return len(self.data)
+        self.dataset = None
 
     # Gets the scalars for the X and y values
-    def getScalers(self):
-        return self.scaler_X, self.scaler_y
+    def getScaler(self):
+        return self.scaler
 
     # sets the scalars for the X and y values
-    def setScalers(self, scaler_X, scaler_y):
-        self.scaler_X = scaler_X
-        self.scaler_y = scaler_y
+    def setScaler(self, scaler):
+        self.scaler = scaler
 
-    def featuresFromTouchstone(self, touchstone: TouchstoneList):
+    # Gets features from touchstoneList, Optional filtering of features
+    @staticmethod
+    def featuresFromTouchstone(touchstone: TouchstoneList):
+        diff = (
+            np.pad(
+                np.diff(touchstone.getResonanceFrequencyList()),
+                (1, 0),
+                mode="constant",
+                constant_values=0,
+            ).tolist(),
+        )
+
         feature_map = {
             "resonanceFrequency": touchstone.getResonanceFrequencyList(),
             "resonanceMagnitude": touchstone.getResonanceMagnitudeList(),
             "resonancePhase": touchstone.getPhaseDataList(),
             "resonanceReal": [c.real for c in touchstone.getComplexDataList()],
             "resonanceImag": [c.imag for c in touchstone.getComplexDataList()],
+            "deltaResonanceFrequency": diff,
         }
 
         # Filter features based on acceptedFeatures
         selected_features = [
-            feature_map[key] for key in self.acceptedFeatures if key in feature_map
+            feature_map[key] for key in Dataset.acceptedFeatures if key in feature_map
         ]
 
         # Convert to NumPy array and transpose
@@ -61,21 +77,149 @@ class Dataset:
         y = np.array(touchstone.getTemperatureDataList())
         return X, y
 
-    @classmethod
-    def from_csv(cls, path: str, target_column: str):
-        df = pd.read_csv(path)
-        target = df.pop(target_column)
-        return cls(df, target)
+    @staticmethod
+    def formatFeatures(X, y):
+        print("Format Features")
+        print(f"X shape: {np.array(X).shape}")
+        print(f"y shape: {np.array(y.reshape(-1, 1)).shape}")
+        y = y.reshape(-1, 1)
+        return X, y
+
+    def concatenateFeatures(self, Xlist, ylist):
+        X = np.concatenate(Xlist)
+        y = np.concatenate(ylist)
+        print("Concatenate Features")
+        print(f"X shape: {np.array(X).shape}")
+        print(f"y shape: {np.array(y).shape}")
+        return X, y
+
+    @staticmethod
+    def timestepFeatures(timesteps, X, y):
+        X_lstm = []
+        y_lstm = []
+
+        for i in range(timesteps, len(X)):
+            X_lstm.append(X[i - timesteps : i])
+            y_lstm.append(y[i])
+
+        X_lstm = np.array(X_lstm)
+        y_lstm = np.array(y_lstm)
+        print("TimeStep Features")
+        print(f"X shape: {np.array(X_lstm).shape}")
+        print(f"y shape: {np.array(y_lstm).shape}")
+        return X_lstm, y_lstm
+
+    def flattenFeatures(self, X, y):
+        X_reshaped = X.reshape(-1, 5)
+        print("Flatten Features")
+        print(f"X shape: {np.array(X_reshaped).shape}")
+        print(f"y shape: {np.array(y).shape}")
+        return X_reshaped, y
+
+    def reshapeFeatures(self, X, y):
+        X = X.reshape(-1, self.timesteps, 5)
+        print("Reshape Features")
+        print(f"X shape: {np.array(X).shape}")
+        print(f"y shape: {np.array(y).shape}")
+        return X, y
+
+    @staticmethod
+    def splitDataset(dataset, validationRatio):
+        if dataset is None:
+            raise ValueError("Dataset is empty")
+        # Create validation dataset
+        total_samples = len(dataset)
+        validation_size = int(validationRatio * total_samples)
+        validation_dataset = dataset.take(validation_size)
+
+        # Create training dataset
+        training_dataset = dataset.skip(validation_size)
+        return training_dataset, validation_dataset
+
+    def getTimesteplessCopy(self):
+        Dataset.print_dataset_info("Before timestep removal", self.dataset)
+
+        # Remove timesteps
+        # Map function to reduce timesteps (keep the first timestep)
+        def reduce_timesteps(sample, y):
+            print(f"Sample shape: {sample.shape}")
+            print(f"Index: {y}")
+            print(f"Sample: {sample}")
+            print(f"Sample 0 shape: {sample[:, 0, :]}")
+            return (sample[:, 0, :], y)  # Keep only the first timestep
+
+        # Apply the map function to the dataset
+        print(self.dataset)
+
+        datasetCopy = self.dataset.map(reduce_timesteps)
+
+        print(datasetCopy)
+
+        Dataset.print_dataset_info("After timestep removal", datasetCopy)
+        return datasetCopy
+
+    # def touchstoneListToDataset(self, touchstone: TouchstoneList):
+    #     X, y = self.featuresFromTouchstone(touchstone)
+    #     # format features for model
+    #     X_lstm, y_lstm = self.formatFeatures(X, y)
+    #     dataset = tf.data.Dataset.from_tensor_slices((X_lstm, y_lstm))
+    #     return dataset
 
     @classmethod
-    def from_csv_list(cls, paths: list, target_column: str):
-        data = []
-        target = []
-        for path in paths:
-            df = pd.read_csv(path)
-            target.append(df.pop(target_column))
-            data.append(df)
-        return cls(pd.concat(data), pd.concat(target))
+    def fromCSVList(
+        cls,
+        csvList: list,
+        timesteps=TIMESTEPS,
+        buffer_size=BUFFER_SIZE,
+        batch_size=BATCH_SIZE,
+    ):
+        newInstance = cls(timesteps, buffer_size, batch_size)
+        formatedFeaturesList = []
+        for csv in csvList:
+            touchstoneList = TouchstoneList.loadTouchstoneListFromCSV(csv)
+            X, y = newInstance.featuresFromTouchstone(touchstoneList)
+            formatedX, formatedY = newInstance.formatFeatures(X, y)
+            formatedFeaturesList.append((formatedX, formatedY))
+            print("New Features from Touchstone")
+            print(f"X shape: {np.array(formatedX).shape}")
+            print(f"y shape: {np.array(formatedY).shape}")
+        print(f"Formated Datasets List: {len(formatedFeaturesList)}")
+        # print(f"Csv: {csv} has {len(dataset)} samples")
+        # print(f"Element spec of {csv}:", dataset.element_spec)
+        # datasetList.append(dataset)
+
+        # fit the scaler first
+        Xscaling, yScaling = newInstance.concatenateFeatures(
+            *zip(*formatedFeaturesList)
+        )
+        newInstance.scaler.fitAndScaleFeatures(X=None, y=yScaling)
+        print("Fitted Scaler")
+
+        # Go through all formated feature tupes and scale,timestep them
+        formatedScaleTimestepedFeaturesList = []
+        for X, y in formatedFeaturesList:
+            _, y = newInstance.scaler.scaleFeatures(X=None, y=y)
+            X, _ = newInstance.scaler.fitAndScaleFeatures(X=X, y=None)
+            X, y = newInstance.timestepFeatures(timesteps, X, y)
+            formatedScaleTimestepedFeaturesList.append((X, y))
+
+        X, y = newInstance.concatenateFeatures(
+            *zip(*formatedScaleTimestepedFeaturesList)
+        )
+
+        combinedDataset = tf.data.Dataset.from_tensor_slices((X, y))
+        # Check the shape of dataset elements
+        print("Element spec:", combinedDataset.element_spec)
+        # combinedDataset = combinedDataset.batch(1)
+        newInstance.print_dataset_info("PreShuffle", combinedDataset)
+        combinedDataset = newInstance.shuffleDataset(combinedDataset)
+        newInstance.print_dataset_info("PostShuffle", combinedDataset)
+        combinedDataset = combinedDataset
+
+        total_samples = len(combinedDataset)
+        print(f"Total Batched samples after shuffle: {total_samples}")
+        newInstance.dataset = combinedDataset
+        return newInstance
 
     @staticmethod
     def r2_score_manual(y_true, y_pred):
@@ -85,3 +229,65 @@ class Dataset:
 
         r2 = 1 - (ss_res / ss_tot)
         return r2
+
+    @staticmethod
+    def print_dataset_info(name, dataset):
+        # Check if dataset is a TensorFlow Dataset
+        print(f"Dataset: {name}")
+        if isinstance(dataset, tf.data.Dataset):
+            print("\tDataset Type: TensorFlow Dataset")
+            # Inspect a single batch
+            for x, y in dataset.take(1):  # Take one batch
+                print("\tShape of input data:", x.shape)
+                print("\tShape of target data:", y.shape)
+                print("\tData types of input:", x.dtype)
+                print("\tData types of target:", y.dtype)
+                # print(
+                #     "Sample input data:", x.numpy()
+                # )  # Convert tensor to numpy array for display
+                # print("Sample target data:", y.numpy())
+        # Check if dataset is a NumPy array
+        elif isinstance(dataset, np.ndarray):
+            print("Dataset Type: NumPy Array")
+            print("Shape of dataset:", dataset.shape)
+            print("Data type:", dataset.dtype)
+            print("First 5 samples:", dataset[:5])  # Print first 5 samples
+        # Check if dataset is a pandas DataFrame
+        elif isinstance(dataset, pd.DataFrame):
+            print("Dataset Type: Pandas DataFrame")
+            print("Shape of dataset:", dataset.shape)
+            print("Data types of columns:\n", dataset.dtypes)
+            print("First 5 rows:\n", dataset.head())  # Print first 5 rows
+            print(
+                "Summary statistics:\n", dataset.describe()
+            )  # Summary stats for numerical columns
+        else:
+            print("Unsupported dataset type")
+
+    @staticmethod
+    def concatenateDatasets(datasets):
+        if not datasets:
+            raise ValueError("The dataset list is empty.")
+
+        concatenated_dataset = datasets[0]
+        # Use functools.reduce to concatenate all datasets in the list
+        for i in range(1, len(datasets)):
+            concatenated_dataset = concatenated_dataset.concatenate(datasets[i])
+        print(
+            f"final concatination of {len(datasets)} datasets has {len(concatenated_dataset)} samples"
+        )
+        return concatenated_dataset
+
+    def shuffleDataset(self, dataset):
+        # Shuffle and batch the dataset
+        print(dataset)
+        # self.plot_tf_dataset(dataset)
+        print("Shuffling dataset")
+        dataset = dataset.batch(self.batch_size)
+        dataset = dataset.shuffle(self.buffer_size, reshuffle_each_iteration=True)
+        print("Shuffled")
+
+        # dataset = dataset.prefetch(tf.data.AUTOTUNE)  # Optimize data loading
+        # Print dataset elements for verification
+
+        return dataset

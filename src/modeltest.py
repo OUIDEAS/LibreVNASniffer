@@ -5,21 +5,31 @@ import matplotlib.pyplot as plt
 from modelplotter import ModelPlotter
 from regressionmodel import RegressionModel
 from csvList import trainPaths, validationPaths
+from dataset import Dataset
 
-
+TIMESTEPS = 10
+VALIDATIONRATIO = 0.3
+EPOCHS = 1000
 print("Hello World")
 nnmodel = NNModel()
-lstmmodel = LSTMModel(10)
-lstmmodel.initModel()
+lstmmodel = LSTMModel()
+lstmmodel.initModel(timesteps=TIMESTEPS)
 regressionmodel = RegressionModel()
+
+dataset = Dataset.fromCSVList(trainPaths, timesteps=TIMESTEPS)
 # models = [regressionmodel]
-# models = [nnmodel, lstmmodel, regressionmodel]
-models = [lstmmodel]
+models = [nnmodel, lstmmodel, regressionmodel]
+# models = [nnmodel, lstmmodel]
+# models = [lstmmodel]
+preductionsAndTests = []
 for model in models:
-    (history, mae) = model.miniBatchTrain(trainPaths)
+    history = model.trainOnDataset(dataset, VALIDATIONRATIO, epochs=EPOCHS)
+    mae, yPred, yTrue = model.predictOnDataset(dataset, VALIDATIONRATIO)
     print(f"Model Finished! Validation mae: {mae}")
-    if model == lstmmodel:
-        model.plot_learning_curves(history)
+    # if model == lstmmodel:
+    ModelPlotter.plotLearningCurves(history, model.scaler)
+    preductionsAndTests.append((model.modelName, yPred, yTrue))
+ModelPlotter.predVsTrue(preductionsAndTests)
 # for path in trainPaths:
 #     model.trainCSV(path)
 

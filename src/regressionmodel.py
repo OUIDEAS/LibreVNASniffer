@@ -14,6 +14,7 @@ import seaborn as sns
 import functools
 from enum import Enum
 from model import Model
+from dataset import Dataset
 
 
 class RegressionModel(Model):
@@ -31,28 +32,32 @@ class RegressionModel(Model):
         # Save the entire model (optional)
         self.model.save("regression.model.h5")
 
-    def formatFeaturesforModel(self, X, y):
-        X_scaled = self.scaler_X.fit_transform(X)
+    def getTFDatasetFromDataset(self, dataset: Dataset):
+        if dataset.timesteps >= 1:
+            return dataset.getTimesteplessCopy()
+        else:
+            return dataset.dataset
 
-        # Optionally normalize the target (y)
-        y_scaled = self.scaler_y.fit_transform(y.reshape(-1, 1))
+    def formatFeaturesForModel(self, X, y):
+        X, y = Dataset.formatFeatures(X, y)
+        X, _ = self.scaler.fitAndScaleFeatures(X=X, y=None)
+        _, y = self.scaler.scaleFeatures(X=None, y=y)
+        return X, y
 
-        # Since this is a NN, we don't need to reshape the input data
-        # Flatten the input for feedforward NN (timesteps * features)
-        X_nn = X_scaled.reshape((X_scaled.shape[0], -1))  # Flatten
+    # def finalizePrediction(self, yPred, yTest):
+    #     yPred, yTest = super().finalizePrediction(yPred, yTest)
+    #     # Takes off the amout of data related to the timesteps
+    #     yPred = yPred[self.timesteps :]
+    #     yTest = yTest[self.timesteps :]
+    #     return (yPred, yTest)
 
-        return X_nn, y_scaled
-
-    def finalizePrediction(self, yPred, yTest):
-        yPred, yTest = super().finalizePrediction(yPred, yTest)
-        # Takes off the amout of data related to the timesteps
-        yPred = yPred[self.timesteps :]
-        yTest = yTest[self.timesteps :]
-        return (yPred, yTest)
-
-    def trainOnDataset(self, training_dataset, validation_dataset):
+    def trainOnDataset(self, dataset: Dataset, split, epochs):
         if self.model is None:
             self.initModel()
+
+        noTimesteps = dataset.getTimesteplessCopy()
+        training_dataset, testing_dataset = Dataset.splitDataset(noTimesteps, split)
+
         # Initialize empty lists to store the data
         X_list = []
         y_list = []
@@ -63,4 +68,7 @@ class RegressionModel(Model):
             y_list.extend(label.numpy())  # Flatten the batch and append labels
         # Train the model
         history = self.model.fit(X_list, y_list)
-        return history
+
+        self.setScaler(dataset.getScaler())
+
+        return None

@@ -10,17 +10,22 @@ import tensorflow.keras
 import numpy as np
 import tensorflow as tf
 from csvList import trainPaths, validationPaths
+from dataset import Dataset
+import datetime
 
 TIMESTEPS = 10
+VALIDATIONRATIO = 0.3
+EPOCHS = 50
+# POINTS_TO_EVALUATE = 20
+POINTS_TO_EVALUATE = 50
+
+# current date
+
+now = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 
 print("Num GPUs Available: ", len(tf.config.experimental.list_physical_devices("GPU")))
 print("Hello World")
-lstmmodel = LSTMModel(TIMESTEPS)
-lstmmodel.initModel()
-combinedDataset = lstmmodel.datasetFromCSVList(trainPaths)
-training_dataset, validation_dataset = lstmmodel.splitDataset(combinedDataset)
-# get scalers
-xScale, yScale = lstmmodel.getScalers()
+dataset = Dataset.fromCSVList(trainPaths, timesteps=TIMESTEPS)
 
 
 def evaluate_network(
@@ -30,12 +35,12 @@ def evaluate_network(
     # Below are a list of csv paths inside a list variable we use to train from multiple csv files
 
     print("Hello World")
-    nnmodel = NNModel()
     lstmmodel = LSTMModel()
     lstmmodel.initModel(
         TIMESTEPS, learning_rate, neuronPct, neuronShrink, kernel_regularizer, dropout
     )
-    lstmmodel.setScalers(xScale, yScale)
+
+    params = [dropout, learning_rate, neuronPct, neuronShrink, kernel_regularizer]
 
     print("===========(BaysianOP)Evaluating network with parameters:")
     print(f"dropout: {dropout}")
@@ -45,21 +50,31 @@ def evaluate_network(
     print(f"timesteps: {TIMESTEPS}")
     print(f"kernel_regularizer: {kernel_regularizer}")
     print("===========(BaysianOP)Training on dataset")
-    lstmmodel.print_dataset_info("Training dataset", training_dataset)
-    lstmmodel.print_dataset_info("validation dataset", validation_dataset)
+    # lstmmodel.print_dataset_info("Training dataset", training_dataset)
+    # lstmmodel.print_dataset_info("validation dataset", validation_dataset)
 
-    history = lstmmodel.trainOnDataset(training_dataset, validation_dataset)
+    history = lstmmodel.trainOnDataset(dataset, VALIDATIONRATIO, epochs=EPOCHS)
     print("===========(BaysianOP)Training complete, Predicting on validation dataset")
-    mae = lstmmodel.predictOnDataset(validation_dataset)
-    print(f"===========(BaysianOP)Validation mae: {mae}")
+    mae, _, _ = lstmmodel.predictOnDataset(dataset, VALIDATIONRATIO)
+
+    scale_factor = (
+        lstmmodel.scaler.scaler_y.data_max_ - lstmmodel.scaler.scaler_y.data_min_
+    )
+    historyOriginalValMAE = history.history["val_mae"] * scale_factor
+    last_50_val_mae = historyOriginalValMAE[-50:]
+    avg_val_mae = np.mean(last_50_val_mae)
+    print(f"===========(BaysianOP)Validation mae: {mae} average: {avg_val_mae}")
     # Record this iteration
     time_took = time.time() - start_time
     print(
         f"===========(BaysianOP)Time took for iteration with error of {mae}: {time_took}"
     )
 
+    with open(f"bayes_optimization_log{now}.txt", "a") as f:
+        f.write(f"Params: {params}, Error: {-avg_val_mae:.6f}\n")
+
     tensorflow.keras.backend.clear_session()
-    return -mae
+    return -avg_val_mae
 
 
 def hms_string(sec_elapsed):
@@ -97,7 +112,7 @@ optimizer = BayesianOptimization(
 
 start_time = time.time()
 optimizer.maximize(
-    init_points=20,
+    init_points=POINTS_TO_EVALUATE,
     n_iter=25,
 )
 time_took = time.time() - start_time
