@@ -224,7 +224,8 @@ class Application:
         self.dataCenter.getData(self.tsList, config)
         print("(gui.py) updating plot Data")
         self.VNAplot.update()
-        print("(gui.py) Loop Complete")
+        elapsed_time = time.time() - self.start_time  # End timer
+        print("(gui.py) Loop Complete, took ", elapsed_time, "seconds")
         self.start_time = time.time()  # Start timer
         return
 

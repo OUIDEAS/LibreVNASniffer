@@ -71,13 +71,6 @@ class NNModel(Model):
         _, y = self.scaler.scaleFeatures(X=None, y=y)
         return X, y
 
-    # def finalizePrediction(self, yPred, yTest):
-    #     yPred, yTest = super().finalizePrediction(yPred, yTest)
-    #     # Takes off the amout of data related to the timesteps
-    #     yPred = yPred[self.timesteps :]
-    #     yTest = yTest[self.timesteps :]
-    #     return (yPred, yTest)
-
     def trainOnDataset(self, dataset: Dataset, split, epochs):
         if self.model is None:
             self.initModel()

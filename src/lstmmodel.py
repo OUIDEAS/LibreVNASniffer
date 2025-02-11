@@ -92,28 +92,6 @@ class LSTMModel(Model):
         X, y = Dataset.timestepFeatures(self.timesteps, X, y)
         return X, y
 
-    # def formatFeaturesforModel(self, X, y):
-    #     X_scaled = self.scaler_X.fit_transform(X)
-
-    #     # Optionally normalize the target (y)
-    #     y_scaled = self.scaler_y.fit_transform(y.reshape(-1, 1))
-    #     # Reshape input data to 3D for LSTM (samples, timesteps, features)
-    #     X_lstm = []
-    #     y_lstm = []
-
-    #     for i in range(self.timesteps, len(X_scaled)):
-    #         X_lstm.append(X_scaled[i - self.timesteps : i])
-    #         y_lstm.append(y_scaled[i])
-
-    #     X_model = np.array(X_lstm)
-    #     y_model = np.array(y_lstm)
-
-    #     return X_model, y_model
-
-    # def finalizePrediction(self, yPred, yTest):
-    #     yPred, yTest = super().finalizePrediction(yPred, yTest)
-    #     return (yPred, yTest)
-
     def getTFDatasetFromDataset(self, dataset: Dataset):
         if dataset.timesteps == self.timesteps:
             return dataset.dataset

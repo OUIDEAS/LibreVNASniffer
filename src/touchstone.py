@@ -3,6 +3,7 @@ from scipy.fft import ifft
 import matplotlib.pyplot as plt
 from datetime import datetime, timedelta
 import csv
+from scipy.stats import linregress
 
 
 class Touchstone:
@@ -114,6 +115,21 @@ class TouchstoneList:
 
     def getTouchstones(self):
         return self.touchstones
+
+    # returns the resonance freqnecy at temperature
+    def getRootFrequency(self, temperature=30):
+        # Function to calculate X given Y
+        def get_x_for_y(y, slope, intercept):
+            return (y - intercept) / slope
+
+        # Compute the line of best fit
+        slope, intercept, _, _, _ = linregress(
+            self.getResonanceFrequencyList(), self.getTemperatureDataList()
+        )
+
+        estimatedRootFreqnecy = get_x_for_y(temperature, slope, intercept)
+
+        return estimatedRootFreqnecy
 
     def getLastTouchstone(self) -> Touchstone:
         if len(self.touchstones) <= 0:

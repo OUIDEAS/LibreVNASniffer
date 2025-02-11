@@ -130,6 +130,7 @@ class VNAPlot:
         self.ax8.set_xlim(1, config.data["bufferSize"])
         self.ax8.set_xlabel("timestep")
         self.ax8.set_ylabel("Resonant Phase (Deg)")
+        self.ax8.set_title("Change in Resonant Phase over time")
         self.ax8.legend()
         self.ax8.grid(True)
         # Plot 9: Phase Angle of Signal
@@ -208,6 +209,12 @@ class VNAPlot:
         self.addStat(
             "Starting Resonance Freqnecy",
             np.array(self.tsList.getResonanceFrequencyList()[0:10]).mean(),
+            1e-9,
+            "GHz",
+        )
+        self.addStat(
+            "Estimated Resoance Freqnecy at 30°C",
+            self.tsList.getRootFrequency(30),
             1e-9,
             "GHz",
         )
