@@ -14,6 +14,7 @@ from dataconfig import DataConfig
 from datacenter import DataCenter
 from matplotlib.animation import FuncAnimation
 import time
+import glob
 
 
 # Base Gui Application
@@ -182,6 +183,7 @@ class Application:
                 measurements = TouchstoneList.loadTouchstoneListFromCSV(file_path)
             except Exception as e:
                 messagebox.showerror("Error", f"Failed to read CSV file: {e}")
+                print("\033[91mError: Cant Read CSV File!\033[0m")
         self.tsList = measurements
         modified_dir_string = file_path.rsplit("/", 1)[0]
         print(modified_dir_string)
@@ -194,6 +196,10 @@ class Application:
         )
         config.data["points"] = len(self.tsList.getLastTouchstone().getFrequencyRange())
         self.displayPlot(config)
+        files = glob.glob(os.path.join(modified_dir_string, "figure_*.png"))
+        if files:
+            print(f"Found figure, overwritting {files[0]}")
+            self.saveFigure(files[0])
         return
 
     def displayPlot(self, config):
@@ -219,9 +225,15 @@ class Application:
         print(f"Figure Render time: {elapsed_time}")
         print("(gui.py) Starting Loop")
         print("(gui.py) Getting Config")
+
         config = self.getConfigFromUser()
         print("(gui.py) Getting Data")
+
+        # Print time to poll data
+        dataPollStart = time.time()
         self.dataCenter.getData(self.tsList, config)
+        dataPollEnd = time.time()
+        print(f"Data Poll Time: {dataPollEnd - dataPollStart}")
         print("(gui.py) updating plot Data")
         self.VNAplot.update()
         elapsed_time = time.time() - self.start_time  # End timer
@@ -245,6 +257,7 @@ class Application:
         distance = self.entry_distance.get()
         if distance == "":
             self.result_text.insert(tk.END, "No Default distance" + "\n")
+            print("\033[91mError: Input Distance!\033[0m")
             return None
         else:
             print(distance)

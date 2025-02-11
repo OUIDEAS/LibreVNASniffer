@@ -104,7 +104,7 @@ class libreVNA:
         if int(len(values) / 3) * 3 != len(values):
             # number of values must be a multiple of three (frequency, real, imaginary)
             print(values)
-            print("ERROR INCCORECT NUMBER OF VALUES")
+            print("\033[91mError: Vna returned EMPTY Data!\033[0m")
             return None
             raise Exception("Invalid input data: expected tuples of three values each")
         for i in range(0, len(values), 3):

@@ -25,6 +25,7 @@ class DataCenter:
         std = np.std(tsList.getResonanceFrequencyList())
         distance = abs(tsFile.getResonanceFrequency()[0] - mean)
         if distance > 4 * std:
+            print("\033[91mError: Collected Data too far from Mean!\033[0m")
             print(
                 "Invalid Data with resonance freqnecy of ",
                 tsFile.getResonanceFrequency()[0] / 1e9,
@@ -56,7 +57,9 @@ class DataCenter:
             return
         tsFile = Touchstone(data)
         print("Polling Thermocouple for new data")
-        tsFile.addTemperatureData(self.thermocouple.readTempatureCelsius())
+        temp = self.thermocouple.readTempatureCelsius()
+        print("Temperature: ", temp)
+        tsFile.addTemperatureData(temp)
         print("Polling Finished, Checking for valid data")
         if self.checkForInvalidData(tsFile, tsList):
             return
