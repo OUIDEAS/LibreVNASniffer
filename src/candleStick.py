@@ -1,6 +1,8 @@
 import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
+from touchstone import TouchstoneList, Touchstone
+from csvList import sensVsDist
 
 data = [
     (200, 0.022),
@@ -18,30 +20,52 @@ data = [
     (200, 0.044),
     (200, 0.041),
 ]
-# Sample data (replace with your own)
-np.random.seed(0)
-distance = np.random.uniform(
-    0, 400, 100
-)  # Random floating point distances between 0mm and 400mm
-sensitivity = (
-    np.random.randn(100) * 10 + 50
-)  # Random sensitivities, centered around 50 MHz/C
+print("loading ", len(sensVsDist), " datasets")
+datasets = [TouchstoneList.loadTouchstoneListFromCSV(path) for path in sensVsDist]
+touchstoneTuples = [
+    (
+        ts.name if ts.name else "No name",
+        ts.getRootFrequency() * 1e-9,
+        abs(ts.getSlopeAndInterceptOfResonantFreq()[0]) * 1e-6,
+        ts.getR2(),
+        ts.config.data["distance"],
+    )
+    for ts in datasets
+]
 
-# Combine distance and sensitivity into a single list of tuples
-data2 = list(zip(distance, sensitivity))
+print(*touchstoneTuples, sep="\n")
+
+# wait for a second
+wait = input("Press Enter to continue.")
+
 
 # Create a DataFrame from the list of tuples
-df = pd.DataFrame(data, columns=["Distance", "Sensitivity"])
+df = pd.DataFrame(
+    touchstoneTuples, columns=["Name", "Root", "Sensitivity", "R2", "Distance"]
+)
+
+df["invSensitivity"] = 1 / df["Sensitivity"]
+
+center1, center2 = 3.1, 3.7
+df["Cluster"] = df["Root"].apply(
+    lambda x: "Cluster1" if abs(x - center1) < abs(x - center2) else "Cluster2"
+)
+# Split into two DataFrames
+df_cluster1 = df[df["Cluster"] == "Cluster1"].drop(columns=["Cluster"])
+df_cluster2 = df[df["Cluster"] == "Cluster2"].drop(columns=["Cluster"])
+
+print(df_cluster1)
+print(df_cluster2)
 
 # Define the bins for the specific ranges you want
-bins = [200, 300, 400, 500]
+bins = [0, 400, 600, 800]
 
 # Group by the defined distance intervals
-df["Distance Group"] = pd.cut(df["Distance"], bins=bins, right=False)
+df_cluster2["Distance Group"] = pd.cut(df_cluster2["Distance"], bins=bins, right=False)
 
 # Convert the 'Distance Group' to a categorical column with ordered categories
-df["Distance Group"] = pd.Categorical(
-    df["Distance Group"],
+df_cluster2["Distance Group"] = pd.Categorical(
+    df_cluster2["Distance Group"],
     categories=pd.cut(bins, bins=bins, right=False).categories,
     ordered=True,
 )
@@ -50,15 +74,76 @@ df["Distance Group"] = pd.Categorical(
 plt.figure(figsize=(10, 6))
 plt.boxplot(
     [
-        df[df["Distance Group"] == group]["Sensitivity"]
-        for group in df["Distance Group"].cat.categories
+        df_cluster2[df_cluster2["Distance Group"] == group]["invSensitivity"]
+        for group in df_cluster2["Distance Group"].cat.categories
     ],
-    labels=[str(group) for group in df["Distance Group"].cat.categories],
+    labels=["350", "500", "750"],
 )
+
+
+# Add individual points at specific distances
+additional_points_x = [1, 2, 3]  # Corresponding x positions for "350", "500", "750"
+additional_points_y = [0.027, 0.056, 0.059]
+additional_points_y = [1 / y for y in additional_points_y]
+
+plt.scatter(
+    additional_points_x[0],
+    additional_points_y[0],
+    color="blue",
+    marker="o",
+    label="N-35",
+)
+plt.scatter(
+    additional_points_x[1],
+    additional_points_y[1],
+    color="orange",
+    marker="o",
+    label="N-50",
+)
+plt.scatter(
+    additional_points_x[2],
+    additional_points_y[2],
+    color="red",
+    marker="o",
+    label="N-75",
+)
+
 plt.title("Boxplot of Sensitivity by Distance Group")
 plt.xlabel("Distance (mm) Group")
-plt.ylabel("Sensitivity (MHz/°C)")
+plt.ylabel("Sensitivity (°C/MHz)")
 plt.xticks(rotation=45)
 plt.grid(True)
 plt.tight_layout()
+plt.legend()
+plt.show()
+
+
+# Create a figure
+plt.figure(figsize=(10, 6))
+
+# Get unique distances and assign colors
+unique_distances = sorted(df["Distance"].unique(), reverse=True)
+print(unique_distances)
+
+colors = ["red", "blue", "green", "purple", "orange"]  # Add more if needed
+
+# Plot each distance separately
+for i, distance in enumerate(unique_distances):
+    subset = df[df["Distance"] == distance]
+    plt.scatter(
+        subset["Root"],
+        subset["Sensitivity"],
+        color=colors[i % len(colors)],  # Cycle through colors if needed
+        label=f"Distance {distance} mm",
+        edgecolors="black",
+    )
+
+# Labels and legend
+plt.ylabel("Sensitivity (MHz/°C)")
+plt.xlabel("Root Frequency (MHz)")
+plt.title("Scatter Plot of Root Frequency vs Sensitivity by Distance")
+plt.legend(title="Distance (mm)")
+plt.grid(True)
+
+# Show plot
 plt.show()

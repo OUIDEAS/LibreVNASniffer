@@ -4,6 +4,10 @@ import matplotlib.pyplot as plt
 from datetime import datetime, timedelta
 import csv
 from scipy.stats import linregress
+from sklearn.linear_model import LinearRegression
+from dataconfig import DataConfig
+import os
+import sys
 
 
 class Touchstone:
@@ -99,6 +103,8 @@ class TouchstoneList:
         self.touchstones = []
 
         self.firstTimestamp = None
+        self.name = None
+        self.config = None
 
     def addTouchstone(self, touchstone):
         if not isinstance(touchstone, Touchstone):
@@ -116,19 +122,62 @@ class TouchstoneList:
     def getTouchstones(self):
         return self.touchstones
 
+    def getSlopeAndInterceptOfResonantFreq(self):
+        temperature = self.getTemperatureDataList()
+        ndTemperature = np.array(temperature)
+
+        def calculate_weights(temp):
+            # Calculate lower and upper 5% thresholds
+            lower_bound = np.percentile(temp, 5)
+            upper_bound = np.percentile(temp, 95)
+
+            # Create weights
+            weights = np.ones_like(temperature)  # Start with equal weights
+            weights[temperature <= lower_bound] = 2.0  # Weight for lower 5%
+            weights[temperature >= upper_bound] = 2.0  # Weight for upper 5%
+            return weights
+
+        weightedTemperature = calculate_weights(ndTemperature)
+
+        # Step 3: Fit a weighted linear regression model
+        X = ndTemperature.reshape(-1, 1)  # Reshape for sklearn
+        y = self.getResonanceFrequencyList()
+        weights = weightedTemperature
+
+        model = LinearRegression()
+        model.fit(X, y, sample_weight=weights)
+        # Compute the line of best fit
+        # Get the slope and intercept
+        slope = model.coef_[0]
+        intercept = model.intercept_
+
+        return slope, intercept
+
+    # Returns R^2 value of the line of best fit
+    def getR2(self):
+        x = np.array(self.getResonanceFrequencyList())
+        y = np.array(self.getTemperatureDataList())
+        if len(x) != len(y):
+            raise ValueError("x and y must have the same length to compute R²")
+
+        # Fit a simple linear regression model: y = mx + b
+        m, b = np.polyfit(x, y, 1)  # Linear regression (degree=1)
+
+        # Predicted y values
+        y_pred = m * x + b
+
+        # Compute R² score
+        ss_res = np.sum((y - y_pred) ** 2)  # Residual sum of squares
+        ss_tot = np.sum((y - np.mean(y)) ** 2)  # Total sum of squares
+        r_squared = 1 - (ss_res / ss_tot)
+
+        return r_squared
+
     # returns the resonance freqnecy at temperature
     def getRootFrequency(self, temperature=30):
-        # Function to calculate X given Y
-        def get_x_for_y(y, slope, intercept):
-            return (y - intercept) / slope
-
-        # Compute the line of best fit
-        slope, intercept, _, _, _ = linregress(
-            self.getResonanceFrequencyList(), self.getTemperatureDataList()
-        )
-
-        estimatedRootFreqnecy = get_x_for_y(temperature, slope, intercept)
-
+        slope, intercept = self.getSlopeAndInterceptOfResonantFreq()
+        estimatedRootFreqnecy = slope * temperature + intercept
+        # print(slope, intercept)
         return estimatedRootFreqnecy
 
     def getLastTouchstone(self) -> Touchstone:
@@ -195,8 +244,8 @@ class TouchstoneList:
                 closestDistance = distance
         return closestTouchstone
 
-    @classmethod
-    def loadTouchstoneListFromCSV(cls, filename):
+    @staticmethod
+    def loadTouchstoneListFromCSV(filename) -> "TouchstoneList":
         fieldnames = ["timestamp", "resonanceFreq", "resonanceMag", "temp"]
         tsl = TouchstoneList()
         with open(filename, "r") as file:
@@ -204,6 +253,12 @@ class TouchstoneList:
             for row in reader:
                 ts = Touchstone.loadCSVData(row)
                 tsl.addTouchstone(ts)
+        # Isolate just the csv filename
+        tsl.name = filename.split("/")[-1]
+        dir = filename.rsplit("/", 1)[0]
+        print(dir)
+        tsl.config = DataConfig.loadConfig(dir)
+        print("Loaded touchstone list from", tsl.name)
         return tsl
 
     def __repr__(self):

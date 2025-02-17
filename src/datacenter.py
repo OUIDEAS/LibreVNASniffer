@@ -24,7 +24,7 @@ class DataCenter:
         mean = np.mean(tsList.getResonanceFrequencyList())
         std = np.std(tsList.getResonanceFrequencyList())
         distance = abs(tsFile.getResonanceFrequency()[0] - mean)
-        if distance > 4 * std:
+        if distance > 6 * std:
             print("\033[91mError: Collected Data too far from Mean!\033[0m")
             print(
                 "Invalid Data with resonance freqnecy of ",

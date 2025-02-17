@@ -15,6 +15,7 @@ from datacenter import DataCenter
 from matplotlib.animation import FuncAnimation
 import time
 import glob
+from markdownEditor import MarkdownEditor
 
 
 # Base Gui Application
@@ -27,14 +28,30 @@ class Application:
         self.root = tk.Tk()
         self.root.title("VNA Frequency Analysis")
         self.root.geometry("1920x1080")
+        # Set up the window close protocol
+        self.root.protocol("WM_DELETE_WINDOW", self.on_close)
 
-        self.buttonFrame = tk.Frame()
-        self.buttonFrame.grid(row=0, column=0, padx=10, pady=10)
-        self.graphFrame = tk.Frame()
+        # Two main frames, One for control panel and the other for the Graphs
+        self.toolsFrame = tk.Frame(self.root)
+        self.toolsFrame.grid(row=0, column=0, padx=10, pady=10)
+        self.graphFrame = tk.Frame(self.root)
         self.graphFrame.grid(row=0, column=1, padx=10, pady=10)
+
+        # Create frames for buttons, inputs, and results
+        self.buttonFrame = tk.Frame(self.toolsFrame)
+        self.buttonFrame.grid(row=0, column=0, padx=10, pady=10)
+        self.markdownEditor = MarkdownEditor(self.toolsFrame)
+        self.markdownEditor.grid(row=1, column=0, pady=self.PADDING)
+        self.textInputs = tk.Frame(self.toolsFrame)
+        self.textInputs.grid(row=2, column=0, pady=self.PADDING)
+        self.resultsFrame = tk.Frame(self.toolsFrame)
+        self.resultsFrame.grid(row=3, column=0, pady=self.PADDING)
 
         self.isPaused = False
         self.fig, _ = plt.subplots()
+
+        # Keeps track of the project directory
+        self.projectDirectory = None
 
         defaultConfig = DataConfig(
             freqStart=3.0,
@@ -51,10 +68,12 @@ class Application:
         inputBoxCount = 0
         for key, value in defaultConfig.data.items():
             if value != None:
-                self.create_input_box(key, inputBoxCount, defaultConfig.data[key])
+                self.create_input_box(
+                    self.textInputs, key, inputBoxCount, defaultConfig.data[key]
+                )
                 inputBoxCount += 1
             else:
-                self.create_input_box(key, inputBoxCount)
+                self.create_input_box(self.textInputs, key, inputBoxCount)
                 inputBoxCount += 1
 
         # Add an Analyze button
@@ -82,22 +101,23 @@ class Application:
         ]
         buttonIndex = 0
         for button in buttons:
-            button.grid(row=(buttonIndex // 2) + inputBoxCount, column=buttonIndex % 2)
+            button.grid(row=(buttonIndex // 2), column=buttonIndex % 2)
             buttonIndex += 1
 
         # Add a text widget to display results
-        self.result_text = tk.Text(self.buttonFrame, height=10, width=50)
+        self.result_text = tk.Text(self.resultsFrame, height=10, width=50)
         self.result_text.grid(
-            row=inputBoxCount + (buttonIndex // 2) + 1,
+            row=0,
             column=0,
             columnspan=2,
             pady=self.PADDING,
         )
+        # Markdown Editor (Below Button Frame)
 
-    def create_input_box(self, label_text, row, defaultValue=None):
-        label = tk.Label(self.buttonFrame, text=label_text)
+    def create_input_box(self, root, label_text, row, defaultValue=None):
+        label = tk.Label(root, text=label_text)
         label.grid(row=row, column=0, padx=10, pady=self.PADDING, sticky="e")
-        entry = tk.Entry(self.buttonFrame)
+        entry = tk.Entry(root)
         entry.grid(row=row, column=1, padx=10, pady=self.PADDING, sticky="w")
         if defaultValue != None:
             entry.insert(0, defaultValue)
@@ -112,6 +132,11 @@ class Application:
         else:
             self.pauseRun()
 
+    def on_close(self):
+        print("Window is closing. Terminating the program.")
+        self.root.quit()  # This will stop the Tkinter event loop
+        self.root.destroy()  # Close the Tkinter window
+
     def resumeRun(self):
         self.isPaused = False
         self.pauseRunButton.config(text="Pause Run")
@@ -124,7 +149,19 @@ class Application:
         if hasattr(self, "ani"):
             self.ani.pause()
 
+    def saveExistingProject(self):
+        figureDir = glob.glob(os.path.join(self.projectDirectory, "figure_*.png"))
+        notesDir = glob.glob(os.path.join(self.projectDirectory, "notes.md"))
+        self.saveFigure(figureDir[0])
+        self.saveMarkdown(notesDir[0])
+        print("===File Updated===")
+        return self.projectDirectory
+
     def saveRun(self):
+        if self.projectDirectory:
+            messagebox.showinfo("Heads Up", "A project is already open, saving to that")
+            return self.saveExistingProject()
+
         print("File Saving....")
         print(os.getcwd())
         now = datetime.now()
@@ -162,6 +199,12 @@ class Application:
             pickle.dump(self.tsList, file)
         print("pickle saved")
 
+    def saveMarkdown(self, dir):
+        # Save the Markdown file
+        print("Saving Markdown")
+        self.markdownEditor.save_file(dir)
+        print("Markdown saved")
+
     def getRunDirectory(self):
         now = datetime.now()
         baseDirectory = "./data"
@@ -173,6 +216,10 @@ class Application:
         return directory
 
     def openFileExplorer(self):
+        # if self.projectDirectory:
+        #     messagebox.showerror("Error", "A project is already open")
+        #     return
+
         file_path = filedialog.askopenfilename(
             title="Select a CSV file",
             filetypes=(("CSV files", "*.csv"), ("All files", "*.*")),
@@ -187,7 +234,12 @@ class Application:
         self.tsList = measurements
         modified_dir_string = file_path.rsplit("/", 1)[0]
         print(modified_dir_string)
-        config = DataConfig.loadConfig(modified_dir_string)
+        self.projectDirectory = modified_dir_string
+        # Load Markdown Data
+
+        self.markdownEditor.load_file(self.projectDirectory)
+        # Load Config data
+        config = DataConfig.loadConfig(self.projectDirectory)
         config.data["freqStart"] = (
             self.tsList.getLastTouchstone().getFrequencyRange()[0] / 10e8
         )
@@ -195,11 +247,14 @@ class Application:
             self.tsList.getLastTouchstone().getFrequencyRange()[-1] / 10e8
         )
         config.data["points"] = len(self.tsList.getLastTouchstone().getFrequencyRange())
+
         self.displayPlot(config)
-        files = glob.glob(os.path.join(modified_dir_string, "figure_*.png"))
+        # Load existing Figures
+        files = glob.glob(os.path.join(self.projectDirectory, "figure_*.png"))
         if files:
             print(f"Found figure, overwritting {files[0]}")
             self.saveFigure(files[0])
+
         return
 
     def displayPlot(self, config):
@@ -209,15 +264,15 @@ class Application:
         self.canvas = FigureCanvasTkAgg(self.fig, master=self.graphFrame)
         self.canvas.draw()
 
-        self.canvas.get_tk_widget().grid(row=0, column=3)
+        self.canvas.get_tk_widget().grid(row=0, column=0)
         # creating the Matplotlib toolbar
         toolbarFrame = tk.Frame(self.graphFrame)
-        toolbarFrame.grid(row=1, column=3)
+        toolbarFrame.grid(row=1, column=0)
         toolbar = NavigationToolbar2Tk(self.canvas, toolbarFrame)
         toolbar.update()
 
         # placing the toolbar on the Tkinter window
-        self.canvas.get_tk_widget().grid(row=2, column=3)
+        self.canvas.get_tk_widget().grid(row=2, column=0)
         self.VNAplot.update()
 
     def mainloop(self, frame):

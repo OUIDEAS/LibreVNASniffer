@@ -341,37 +341,14 @@ class VNAPlot:
         resonanceFrequency = self.tsList.getResonanceFrequencyList()
         resonanceMagnitude = self.tsList.getResonanceMagnitudeList()
         assert len(temperature) == len(resonanceFrequency)
-        ndTemperature = np.array(temperature)
         # Step 1: Identify the minimum and maximum temperatures
         min_temp, max_temp = self.tsList.getTemperatureRange()
 
-        # Step 2: Define weights based on distance from min and max temperatures
-        def calculate_weights(temp):
-            # Calculate lower and upper 5% thresholds
-            lower_bound = np.percentile(temp, 5)
-            upper_bound = np.percentile(temp, 95)
-
-            # Create weights
-            weights = np.ones_like(temperature)  # Start with equal weights
-            weights[temperature <= lower_bound] = 2.0  # Weight for lower 5%
-            weights[temperature >= upper_bound] = 2.0  # Weight for upper 5%
-            return weights
-
-        # Apply weight calculation
-        weightedTemperature = calculate_weights(ndTemperature)
+        slope, intercept = self.tsList.getSlopeAndInterceptOfResonantFreq()
 
         # Step 3: Fit a weighted linear regression model
-        X = ndTemperature.reshape(-1, 1)  # Reshape for sklearn
-        y = resonanceFrequency
-        weights = weightedTemperature
 
-        model = LinearRegression()
-        model.fit(X, y, sample_weight=weights)
-
-        # Get the slope and intercept
-        slope = model.coef_[0]
         self.addStat("Resonance Freqnecy Sensitivity", slope, 1e-6, "MHz/°C")
-        intercept = model.intercept_
 
         # Step 4: Print the slope
         print(f"Weighted slope of Frequency with respect to Temperature: {slope}")
@@ -384,12 +361,15 @@ class VNAPlot:
             color="green",
             label="temp vs resonance",
         )
+        # add grid
+        self.ax6.grid(True)
         # add line of best fit to scatter plot
         print("Creating line of best fit linespace")
         x = np.linspace(min_temp, max_temp, 100)
+        y2 = slope * x + intercept  # Compute corresponding y-values
         print("Predicting y values for line of best fit")
-        y = model.predict(x.reshape(-1, 1))
-        (self.lineOfBestFit,) = self.ax6.plot(x, y, color="red")
+        (self.lineOfBestFit,) = self.ax6.plot(x, y2, color="red")
+
         # Add slope as text near the line
         text = self.ax6.text(
             0.95,
@@ -406,7 +386,7 @@ class VNAPlot:
         # Calculate the R^2 score
         if len(resonanceFrequency) > 2:
             print("Calculating R^2 score")
-            r2_score = model.score(X, resonanceFrequency)
+            r2_score = self.tsList.getR2()
             # Add R^2 as text near the line
             print("Adding R^2 score to plot")
             text = self.ax6.text(
