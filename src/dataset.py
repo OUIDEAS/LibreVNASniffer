@@ -7,17 +7,18 @@ from sklearn.preprocessing import MinMaxScaler
 from touchstone import Touchstone, TouchstoneList
 import tensorflow as tf
 from scaler import Scaler
-
+import matplotlib.pyplot as plt
 
 EPOCHS = 750
 BUFFER_SIZE = 10000
-BATCH_SIZE = 20
+BATCH_SIZE = 64
 TIMESTEPS = 10
 
 
 class Dataset:
     acceptedFeatures = [
-        "resonanceFrequency",
+        "normalizedResonanceFrequency",
+        # "resonanceFrequency",
         # "deltaResonanceFrequency",
         "resonanceMagnitude",
         "resonancePhase",
@@ -47,22 +48,19 @@ class Dataset:
     # Gets features from touchstoneList, Optional filtering of features
     @staticmethod
     def featuresFromTouchstone(touchstone: TouchstoneList):
-        diff = (
-            np.pad(
+        feature_map = {
+            "resonanceFrequency": touchstone.getResonanceFrequencyList(),
+            "normalizedResonanceFrequency": touchstone.getNormalizedResonanceFrequencyList(),
+            "resonanceMagnitude": touchstone.getResonanceMagnitudeList(),
+            "resonancePhase": touchstone.getPhaseDataList(),
+            "resonanceReal": [c.real for c in touchstone.getComplexDataList()],
+            "resonanceImag": [c.imag for c in touchstone.getComplexDataList()],
+            "deltaResonanceFrequency": np.pad(
                 np.diff(touchstone.getResonanceFrequencyList()),
                 (1, 0),
                 mode="constant",
                 constant_values=0,
             ).tolist(),
-        )
-
-        feature_map = {
-            "resonanceFrequency": touchstone.getResonanceFrequencyList(),
-            "resonanceMagnitude": touchstone.getResonanceMagnitudeList(),
-            "resonancePhase": touchstone.getPhaseDataList(),
-            "resonanceReal": [c.real for c in touchstone.getComplexDataList()],
-            "resonanceImag": [c.imag for c in touchstone.getComplexDataList()],
-            "deltaResonanceFrequency": diff,
         }
 
         # Filter features based on acceptedFeatures
@@ -173,16 +171,36 @@ class Dataset:
         buffer_size=BUFFER_SIZE,
         batch_size=BATCH_SIZE,
     ):
+        plt.figure(figsize=(8, 6))
+        # Small dots with transparency
+
+        plt.xlabel("Realative Resonance Frequency")
+        plt.ylabel("Temperature (°C)")
+        plt.title("Scatter Plot of Resonance Frequency vs Temperature")
+        plt.grid(True)
+        # Choose a colormap with more distinct colors
+        cmap = plt.get_cmap("tab20")  # Or try 'Set3', 'hsv', 'Spectral', etc.
+        norm = plt.Normalize(vmin=0, vmax=len(csvList))
         newInstance = cls(timesteps, buffer_size, batch_size)
         formatedFeaturesList = []
-        for csv in csvList:
+        for idx, csv in enumerate(csvList):
             touchstoneList = TouchstoneList.loadTouchstoneListFromCSV(csv)
+            slope, _ = touchstoneList.getSlopeAndInterceptOfResonantFreq()
+            if slope > 0:
+                # Error
+                print(f"Error: {csv} has a positive slope")
+                exit(1)
             X, y = newInstance.featuresFromTouchstone(touchstoneList)
+            # print(f"Size of X: {len(X[:, 0])} Size of y: {len(y)}")
+            color = cmap(norm(idx))
+            plt.scatter(y, np.array(X)[:, 0], s=5, color=color, alpha=0.7)
             formatedX, formatedY = newInstance.formatFeatures(X, y)
             formatedFeaturesList.append((formatedX, formatedY))
             print("New Features from Touchstone")
             print(f"X shape: {np.array(formatedX).shape}")
             print(f"y shape: {np.array(formatedY).shape}")
+
+        plt.show()
         print(f"Formated Datasets List: {len(formatedFeaturesList)}")
         # print(f"Csv: {csv} has {len(dataset)} samples")
         # print(f"Element spec of {csv}:", dataset.element_spec)
@@ -218,6 +236,7 @@ class Dataset:
 
         total_samples = len(combinedDataset)
         print(f"Total Batched samples after shuffle: {total_samples}")
+        Dataset.print_dataset_info("Combined dataset", combinedDataset)
         newInstance.dataset = combinedDataset
         return newInstance
 

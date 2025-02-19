@@ -48,6 +48,7 @@ class Model:
     def predictTouchstone(self, touchstone: TouchstoneList):
         X, y = Dataset.featuresFromTouchstone(touchstone)
         X, y = self.formatFeaturesForModel(X, y)
+
         yPred = self.model.predict(X)
         yTest = y
 

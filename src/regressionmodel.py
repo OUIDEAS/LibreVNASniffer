@@ -49,6 +49,7 @@ class RegressionModel(Model):
             self.initModel()
 
         noTimesteps = dataset.getTimesteplessCopy()
+
         training_dataset, testing_dataset = Dataset.splitDataset(noTimesteps, split)
 
         # Initialize empty lists to store the data

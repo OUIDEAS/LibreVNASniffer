@@ -1,11 +1,46 @@
 from sklearn.preprocessing import MinMaxScaler
 import numpy as np
 
+MAX_TEMP = 1000
+
 
 class Scaler:
     def __init__(self):
         self.scaler_X = MinMaxScaler()
         self.scaler_y = MinMaxScaler()
+        self.scaler_map = {
+            "resonanceFrequency": None,
+            "normalizedResonanceFrequency": MinMaxScaler(feature_range=(0, MAX_TEMP)),
+            "resonanceMagnitude": MinMaxScaler(feature_range=(-100, 0)),
+            "resonancePhase": MinMaxScaler(feature_range=(-180, 180)),
+            "resonanceReal": MinMaxScaler(feature_range=(-1, 1)),
+            "resonanceImag": MinMaxScaler(feature_range=(-1, 1)),
+            "deltaResonanceFrequency": None,
+            "temperature": MinMaxScaler(feature_range=(0, MAX_TEMP)),
+        }
+
+    def smartScaleFeatures(self, acceptedFeatures, X, y):
+        # Loop through accepted features and apply scaling where necessary
+        scaled_X = X.copy()  # Make a copy of X to avoid modifying the original
+
+        # Iterate over accepted features and apply scalers
+        for i, feature_name in enumerate(acceptedFeatures):
+            # Check if there is a scaler for this feature
+            if self.scaler_map[feature_name] is not None:
+                scaler = self.scaler_map[feature_name]
+                feature_column = scaled_X[:, i].reshape(
+                    -1, 1
+                )  # Extract the feature column
+
+                # Apply the scaler to the feature column
+                scaled_X[:, i] = scaler.fit_transform(feature_column).flatten()
+
+        scaled_Y = y.copy()
+        if self.scaler_map["temperature"] is not None:
+            scaler = self.scaler_map["temperature"]
+            scaled_Y = scaler.fit_transform(y.reshape(-1, 1)).flatten()
+
+        return scaled_X, y
 
     def scaleFeatures(self, X, y):
         X_scaled = None

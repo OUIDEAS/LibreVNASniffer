@@ -103,6 +103,12 @@ class LSTMModel(Model):
         training_dataset, validation_dataset = Dataset.splitDataset(
             dataset.dataset, split
         )
+
+        AUTOTUNE = tf.data.AUTOTUNE
+
+        training_dataset = training_dataset.prefetch(tf.data.AUTOTUNE)
+        validation_dataset = validation_dataset.prefetch(tf.data.AUTOTUNE)
+
         if self.model is None:
             self.initModel()
         monitor = EarlyStopping(

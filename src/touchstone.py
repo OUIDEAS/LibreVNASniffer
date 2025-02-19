@@ -207,6 +207,17 @@ class TouchstoneList:
         ]
         return results
 
+    def getNormalizedResonanceFrequencyList(self):
+        slope, intercept = self.getSlopeAndInterceptOfResonantFreq()
+        results = [
+            abs(tsfile[0].getResonanceFrequency()[0]) for tsfile in self.touchstones
+        ]
+
+        # Normalize the resonance freqnecy data using slope and intercept
+        results = [(x - intercept) / slope for x in results]
+
+        return results
+
     def getResonanceMagnitudeList(self):
         results = [tsfile[0].getResonanceFrequency()[1] for tsfile in self.touchstones]
         return results
