@@ -17,7 +17,9 @@ class ModelPlotter:
         # Set up the figure
         plt.figure(figsize=(18, 5))
         plt.grid(True)
-        scale_factor = scaler.scaler_y.data_max_ - scaler.scaler_y.data_min_
+
+        yScaler = scaler.getScaler("temperature")
+        scale_factor = yScaler.data_max_ - yScaler.data_min_
         # Loss plot
         plt.subplot(1, 3, 1)
         plt.plot(history.history["val_loss"], label="Validation Loss")
@@ -53,7 +55,7 @@ class ModelPlotter:
         # Show the plots
         plt.tight_layout()
         plt.grid(True)
-        plt.show()
+        plt.show(block=False)
 
     @staticmethod
     def predVsTrue(predictions_and_tests):
@@ -79,6 +81,7 @@ class ModelPlotter:
                 yPred,
                 color=color,
                 alpha=0.7,
+                s=5,
                 label=f"{name} - R²: {r2:.2f}, MAE: {mae_value:.2f}, Variance: {variance:.2f}",
             )
 
@@ -93,7 +96,7 @@ class ModelPlotter:
         # Show the plot with legends and grid
         plt.legend()
         plt.grid(True)
-        plt.show()
+        plt.show(block=False)
 
     @staticmethod
     def plotEstimateOnCSV(models, path):

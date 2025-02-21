@@ -230,6 +230,12 @@ class TouchstoneList:
         results = [tsfile[0].getResonanceFrequency()[3] for tsfile in self.touchstones]
         return results
 
+    def getDistanceDataList(self):
+        distanceinMM = self.config.data["distance"]
+        # fill up linspace with distanceinMM
+        results = [distanceinMM for tsfile in self.touchstones]
+        return results
+
     def saveTouchstoneListAsCSV(self, filename):
         print("saving csv")
         data = []
@@ -255,6 +261,19 @@ class TouchstoneList:
                 closestDistance = distance
         return closestTouchstone
 
+    # returns if the TouchstoneList is withing certain quality standards, Will not be trained on if not
+    def isQualityDataset(self):
+        slope, _ = self.getSlopeAndInterceptOfResonantFreq()
+        R2 = self.getR2()
+        if slope > 0:
+            print("Slope is positive on dataset ", self.name)
+            return False
+        if R2 < 0.9:
+            print("Dataset ", self.name, " is low quality with R2 of ", R2)
+            return False
+
+        return True
+
     @staticmethod
     def loadTouchstoneListFromCSV(filename) -> "TouchstoneList":
         fieldnames = ["timestamp", "resonanceFreq", "resonanceMag", "temp"]
@@ -267,9 +286,8 @@ class TouchstoneList:
         # Isolate just the csv filename
         tsl.name = filename.split("/")[-1]
         dir = filename.rsplit("/", 1)[0]
-        print(dir)
         tsl.config = DataConfig.loadConfig(dir)
-        print("Loaded touchstone list from", tsl.name)
+        print("Loaded touchstone list from", dir + "/" + tsl.name)
         return tsl
 
     def __repr__(self):

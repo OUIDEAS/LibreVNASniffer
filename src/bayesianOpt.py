@@ -9,13 +9,14 @@ from regressionmodel import RegressionModel
 import tensorflow.keras
 import numpy as np
 import tensorflow as tf
-from csvList import trainPaths, validationPaths
+from csvList import trainPaths, validationPaths, sensVsDist
 from dataset import Dataset
 import datetime
+from scaler import Scaler
 
 TIMESTEPS = 10
 VALIDATIONRATIO = 0.3
-EPOCHS = 50
+EPOCHS = 1000
 # POINTS_TO_EVALUATE = 20
 POINTS_TO_EVALUATE = 50
 
@@ -25,7 +26,10 @@ now = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 
 print("Num GPUs Available: ", len(tf.config.experimental.list_physical_devices("GPU")))
 print("Hello World")
-dataset = Dataset.fromCSVList(trainPaths, timesteps=TIMESTEPS)
+dataset = Dataset.fromCSVList(sensVsDist, timesteps=TIMESTEPS)
+
+with open(f"bayes_optimization_log{now}.txt", "a") as f:
+    f.write(f"Features: {Dataset.acceptedFeatures}\n")
 
 
 def evaluate_network(
@@ -56,10 +60,8 @@ def evaluate_network(
     history = lstmmodel.trainOnDataset(dataset, VALIDATIONRATIO, epochs=EPOCHS)
     print("===========(BaysianOP)Training complete, Predicting on validation dataset")
     mae, _, _ = lstmmodel.predictOnDataset(dataset, VALIDATIONRATIO)
-
-    scale_factor = (
-        lstmmodel.scaler.scaler_y.data_max_ - lstmmodel.scaler.scaler_y.data_min_
-    )
+    scaler = lstmmodel.getScaler().getScaler("temperature")
+    scale_factor = scaler.data_max_ - scaler.data_min_
     historyOriginalValMAE = history.history["val_mae"] * scale_factor
     last_50_val_mae = historyOriginalValMAE[-50:]
     avg_val_mae = np.mean(last_50_val_mae)
@@ -117,5 +119,10 @@ optimizer.maximize(
 )
 time_took = time.time() - start_time
 
-print(f"Total runtime: {hms_string(time_took)}")
+with open(f"bayes_optimization_log{now}.txt", "a") as f:
+    f.write(
+        f"Params: {optimizer.max['params']}, Error: {optimizer.max['target']:.6f}\n"
+    )
+    f.write(f"Runtime: {hms_string(time_took)}")
+
 print(optimizer.max)

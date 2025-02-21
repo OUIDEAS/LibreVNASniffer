@@ -34,7 +34,7 @@ class LSTMModel(Model):
         neuronShrink=1,
         kernel_regularizer=0.001,
         dropout=0.00,
-        numOfFeatures=5,
+        numOfFeatures=Dataset.numOfFeatures(),
     ):
         if self.model is None:
             self.timesteps = int(round(timesteps))
@@ -87,9 +87,14 @@ class LSTMModel(Model):
 
     def formatFeaturesForModel(self, X, y):
         X, y = Dataset.formatFeatures(X, y)
-        X, _ = self.scaler.fitAndScaleFeatures(X=X, y=None)
-        _, y = self.scaler.scaleFeatures(X=None, y=y)
+        X, y = self.scaler.smartScaleFeatures(X=X, y=y)
         X, y = Dataset.timestepFeatures(self.timesteps, X, y)
+
+        if not isinstance(X, np.ndarray):
+            X = np.array(X)
+
+        if not isinstance(y, np.ndarray):
+            y = np.array(y)
         return X, y
 
     def getTFDatasetFromDataset(self, dataset: Dataset):
@@ -97,6 +102,9 @@ class LSTMModel(Model):
             return dataset.dataset
         else:
             raise ValueError("Dataset timesteps do not match model timesteps")
+
+    def predict(self, X):
+        return self.checkPredictionForNans(self.model.predict(X))
 
     def trainOnDataset(self, dataset: Dataset, split, epochs):
         # Split the dataset
@@ -121,6 +129,9 @@ class LSTMModel(Model):
         )
         # Train the model
         print("(LSTM) Training on dataset for ", epochs, " epochs")
+        Dataset.print_dataset_info("Training dataset", training_dataset)
+        # Dataset.plotFeatures(training_dataset, False)
+
         history = self.model.fit(
             training_dataset,
             epochs=epochs,

@@ -48,14 +48,27 @@ class Model:
     def predictTouchstone(self, touchstone: TouchstoneList):
         X, y = Dataset.featuresFromTouchstone(touchstone)
         X, y = self.formatFeaturesForModel(X, y)
-
-        yPred = self.model.predict(X)
+        print("Instancing model " + self.modelName + " on data with shape:", X.shape)
+        yPred = self.predict(X)
         yTest = y
+
+        if np.isnan(yPred).any():
+            print("pred has NaNs")
+            raise ValueError("y_pred has NaNs")
 
         return self.scaler.inverseTransformPrediction(yPred, yTest)
 
     def formatFeaturesForModel(self, X, y):
         raise NotImplementedError("Subclasses must implement this method")
+
+    def predict(self, X):
+        raise NotImplementedError("Subclasses must implement this method")
+
+    def checkPredictionForNans(self, yPred):
+        if np.isnan(yPred).any():
+            print("pred has NaNs")
+            raise ValueError("y_pred has NaNs")
+        return yPred
 
     # def finalizePrediction(self, yPred, yTest):
     #     return yPred, yTest
@@ -92,20 +105,10 @@ class Model:
             # print("Making Predictions")
             # Make predictions for the current batch
             # print(x_batch)
-            y_batch_pred = self.model.predict(x_batch)
-
-            if np.isnan(y_batch_pred).any():
-                print("x_batch")
-                print(x_batch)
-                print(x_batch.shape)
-                print("y_batch")
-
-                print(y_batch_pred)
-                print("y_batch_pred has NaNs")
-
+            y_batch_pred = self.predict(x_batch)
             # Store the true labels and predictions
             yPredS, yTestS = self.scaler.inverseTransformPrediction(
-                y_batch_pred, y_batch
+                y_batch_pred, y_batch.numpy()
             )
             y_true.append(yTestS)  # Convert from Tensor to numpy array
             y_pred.append(yPredS)  # Predictions are already in numpy array format
@@ -114,11 +117,7 @@ class Model:
         y_true = np.concatenate(y_true, axis=0)
         y_pred = np.concatenate(y_pred, axis=0)
 
-        print("y_true")
-        print(y_true.shape)
-        # print(y_true)
-        print("y_pred")
-        print(y_pred.shape)
+        assert y_true.shape == y_pred.shape
         # print(y_pred)
 
         # plt.figure(figsize=(10, 6))
@@ -137,6 +136,6 @@ class Model:
         # Calculate the Mean Absolute Error
         mae_tf = tf.keras.losses.MeanAbsoluteError()
         mae_value = mae_tf(y_true, y_pred).numpy()
-        print(f"MAE without scaling factor: {mae_value}")
+        # print(f"MAE from validation dataset: {mae_value}")
 
         return mae_value, y_pred, y_true

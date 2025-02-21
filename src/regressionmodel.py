@@ -34,23 +34,36 @@ class RegressionModel(Model):
 
     def getTFDatasetFromDataset(self, dataset: Dataset):
         if dataset.timesteps >= 1:
-            return dataset.getTimesteplessCopy()
+            return Dataset.includeOnlyFeatures(
+                Dataset.getTimesteplessCopy(dataset.dataset),
+                ["normalizedResonanceFrequency"],
+            )
+
         else:
-            return dataset.dataset
+            return dataset.includeOnlyFeatures(["normalizedResonanceFrequency"])
 
     def formatFeaturesForModel(self, X, y):
         X, y = Dataset.formatFeatures(X, y)
-        X, _ = self.scaler.fitAndScaleFeatures(X=X, y=None)
-        _, y = self.scaler.scaleFeatures(X=None, y=y)
+        X, y = self.scaler.smartScaleFeatures(X=X, y=y)
+        X, y = Dataset.includeOnlyFeature(X, y, ["normalizedResonanceFrequency"])
+
+        if not isinstance(X, np.ndarray):
+            X = np.array(X)
+
+        if not isinstance(y, np.ndarray):
+            y = np.array(y)
         return X, y
+
+    def predict(self, X):
+        return self.checkPredictionForNans(self.model.predict(X))
 
     def trainOnDataset(self, dataset: Dataset, split, epochs):
         if self.model is None:
             self.initModel()
 
-        noTimesteps = dataset.getTimesteplessCopy()
+        onlyResFreq = self.getTFDatasetFromDataset(dataset)
 
-        training_dataset, testing_dataset = Dataset.splitDataset(noTimesteps, split)
+        training_dataset, testing_dataset = Dataset.splitDataset(onlyResFreq, split)
 
         # Initialize empty lists to store the data
         X_list = []
@@ -61,6 +74,11 @@ class RegressionModel(Model):
             X_list.extend(features.numpy())  # Flatten the batch and append features
             y_list.extend(label.numpy())  # Flatten the batch and append labels
         # Train the model
+        print(
+            "training Regression model on Dataset with shape {}".format(
+                np.array(X_list).shape
+            )
+        )
         history = self.model.fit(X_list, y_list)
 
         self.setScaler(dataset.getScaler())

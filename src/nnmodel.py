@@ -34,7 +34,9 @@ class NNModel(Model):
 
             self.model = Sequential(
                 [
-                    Input(shape=(5,)),  # Flatten input features (timesteps * features)
+                    Input(
+                        shape=(Dataset.numOfFeatures(),)
+                    ),  # Flatten input features (timesteps * features)
                     Dense(
                         64, activation="relu", kernel_regularizer=regularizers.l2(0.001)
                     ),
@@ -61,23 +63,29 @@ class NNModel(Model):
 
     def getTFDatasetFromDataset(self, dataset: Dataset):
         if dataset.timesteps >= 1:
-            return dataset.getTimesteplessCopy()
+            return dataset.getTimesteplessCopy(dataset.dataset)
         else:
             return dataset.dataset
 
     def formatFeaturesForModel(self, X, y):
         X, y = Dataset.formatFeatures(X, y)
-        X, _ = self.scaler.fitAndScaleFeatures(X=X, y=None)
-        _, y = self.scaler.scaleFeatures(X=None, y=y)
+        X, y = self.scaler.smartScaleFeatures(X=X, y=y)
+
+        # if not numpy array, convert to numpy array
+        if not isinstance(X, np.ndarray):
+            X = np.array(X)
+
+        if not isinstance(y, np.ndarray):
+            y = np.array(y)
         return X, y
 
     def trainOnDataset(self, dataset: Dataset, split, epochs):
         if self.model is None:
             self.initModel()
 
-        noTimesteps = dataset.getTimesteplessCopy()
+        TFDataset = self.getTFDatasetFromDataset(dataset)
 
-        training_dataset, validation_dataset = Dataset.splitDataset(noTimesteps, split)
+        training_dataset, validation_dataset = Dataset.splitDataset(TFDataset, split)
         monitor = EarlyStopping(
             monitor="val_mae",
             min_delta=1e-3,
@@ -88,6 +96,9 @@ class NNModel(Model):
         )
 
         # Train the model
+        print("Training NN on dataset for ", epochs, " epochs")
+        Dataset.print_dataset_info("Training dataset", training_dataset)
+        Dataset.plotFeatures(training_dataset)
         history = self.model.fit(
             training_dataset,
             epochs=epochs,
@@ -99,3 +110,6 @@ class NNModel(Model):
         self.setScaler(dataset.getScaler())
 
         return history
+
+    def predict(self, X):
+        return self.checkPredictionForNans(self.model.predict(X))

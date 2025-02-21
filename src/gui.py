@@ -25,6 +25,9 @@ class Application:
 
         self.tsList = TouchstoneList()
         self.PADDING = 2
+
+        self.removedPoints = 0
+
         self.root = tk.Tk()
         self.root.title("VNA Frequency Analysis")
         self.root.geometry("1920x1080")
@@ -184,6 +187,8 @@ class Application:
         self.tsList.saveTouchstoneListAsCSV(csvFilePath)
         self.getConfigFromUser().saveConfig(directory)
         print("===File Saved===")
+        # show file saved info prompt
+        messagebox.showinfo("File Saved", f"File saved to {directory}")
         return directory
 
     def saveFigure(self, dir):
