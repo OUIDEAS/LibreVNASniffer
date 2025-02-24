@@ -12,6 +12,7 @@ import hashlib
 import pickle
 import math
 
+
 EPOCHS = 750
 BUFFER_SIZE = 10000
 BATCH_SIZE = 64
@@ -23,10 +24,10 @@ class Dataset:
         "normalizedResonanceFrequency",
         # "resonanceFrequency",
         # "deltaResonanceFrequency",
-        # "resonanceMagnitude",
-        # "resonancePhase",
-        # "resonanceReal",
-        # "resonanceImag",
+        "resonanceMagnitude",
+        "resonancePhase",
+        "resonanceReal",
+        "resonanceImag",
         # "distance",
     ]
 
@@ -297,11 +298,14 @@ class Dataset:
         # return cachedInstance
 
         plt.figure(figsize=(8, 6))
+        from modelplotter import ModelPlotter
 
         fig, axes = plt.subplots(
-            math.ceil(Dataset.numOfFeatures() / 2), 2, figsize=(10, 6)
+            math.ceil(Dataset.numOfFeatures() / 2),
+            2,
+            figsize=(math.ceil(Dataset.numOfFeatures() / 2) * 8, 16),
         )
-        fig.subplots_adjust(hspace=0.5)  # Adjust spacing between subplots
+        fig.subplots_adjust(hspace=0.3, wspace=0.1)
         # Small dots with transparency
 
         axes = axes.flatten()
@@ -322,8 +326,11 @@ class Dataset:
             color = cmap(norm(idx))
             for i, ax in enumerate(axes):
                 if i < len(X[0]):
-                    ax.set_title(Dataset.acceptedFeatures[i])
+                    ax.set_title(Dataset.acceptedFeatures[i] + " vs Temperature")
                     ax.scatter(y, np.array(X)[:, i], s=5, color=color, alpha=0.7)
+                    ax.grid(True)
+                    ax.set_xlabel("Temperature (°C)")
+                    ax.set_ylabel(Dataset.acceptedFeatures[i])
 
             formatedX, formatedY = newInstance.formatFeatures(X, y)
             formatedFeaturesList.append((formatedX, formatedY))
@@ -333,14 +340,17 @@ class Dataset:
                 f"y shape: {np.array(formatedY).shape}",
             )
 
-        plt.show(block=False)
+        # plt.show(block=True)
+        ModelPlotter.saveFigure(fig, "features_before_scaling")
         print(f"Formated Datasets List: {len(formatedFeaturesList)}")
 
         fig, axes = plt.subplots(
-            math.ceil(Dataset.numOfFeatures() / 2), 2, figsize=(10, 6)
+            math.ceil(Dataset.numOfFeatures() / 2),
+            2,
+            figsize=(math.ceil(Dataset.numOfFeatures() / 2) * 8, 16),
         )
 
-        fig.subplots_adjust(hspace=0.5)  # Adjust spacing between subplots
+        fig.subplots_adjust(hspace=0.3, wspace=0.2)  # Adjust spacing between subplots
         axes = axes.flatten()
 
         formatedScaleTimestepedFeaturesList = []
@@ -351,10 +361,14 @@ class Dataset:
                 if i < len(X[0]):
                     ax.set_title("Scaled" + Dataset.acceptedFeatures[i])
                     ax.scatter(y, np.array(X)[:, i], s=5, color=color, alpha=0.7)
+                    ax.grid(True)
+                    ax.set_xlabel("Temperature (°C)")
+                    ax.set_ylabel("scaled" + Dataset.acceptedFeatures[i])
             X, y = newInstance.timestepFeatures(timesteps, X, y)
             formatedScaleTimestepedFeaturesList.append((X, y))
 
-        plt.show(block=False)
+        # plt.show(block=True)
+        ModelPlotter.saveFigure(fig, "features_after_scaling")
         print(f"Formated Datasets List: {len(formatedFeaturesList)}")
         X, y = newInstance.concatenateFeatures(
             *zip(*formatedScaleTimestepedFeaturesList)

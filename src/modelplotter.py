@@ -7,59 +7,112 @@ from model import Model
 from dataset import Dataset
 from sklearn.metrics import r2_score
 import tensorflow as tf
+import os
+from datetime import datetime
 
 
 class ModelPlotter:
+    curDate = datetime.now().strftime("%m-%d-%Y")
+
     @staticmethod
-    def plotLearningCurves(history, scaler):
+    def plotLearningCurves(history, scaler, name):
         if history is None:
             return
         # Set up the figure
-        plt.figure(figsize=(18, 5))
+        fig, axs = plt.subplots(1, 1, figsize=(10, 6))
         plt.grid(True)
 
         yScaler = scaler.getScaler("temperature")
         scale_factor = yScaler.data_max_ - yScaler.data_min_
-        # Loss plot
-        plt.subplot(1, 3, 1)
-        plt.plot(history.history["val_loss"], label="Validation Loss")
-        plt.plot(history.history["loss"], label="Training Loss")
-        plt.grid(True)
-        plt.title("Loss")
-        plt.xlabel("Epochs")
-        plt.ylabel("Loss")
-        plt.legend()
+        # # Loss plot
+        # plt.subplot(1, 3, 1)
+        # plt.plot(history.history["val_loss"], label="Validation Loss")
+        # plt.plot(history.history["loss"], label="Training Loss")
+        # plt.grid(True)
+        # plt.title("Loss")
+        # plt.xlabel("Epochs")
+        # plt.ylabel("Loss")
+        # plt.legend()
 
         # Mean Absolute Error (MAE) plot
         historyOriginalMAE = history.history["mae"] * scale_factor
         historyOriginalValMAE = history.history["val_mae"] * scale_factor
-        plt.subplot(1, 3, 2)
-        plt.plot(historyOriginalValMAE, label="Validation MAE")
-        plt.plot(historyOriginalMAE, label="Training MAE")
-        plt.grid(True)
-        plt.title("Mean Absolute Error (MAE)")
-        plt.xlabel("Epochs")
-        plt.ylabel("MAE")
-        plt.legend()
-
-        # Accuracy plot (if applicable)
-        if "accuracy" in history.history:
-            plt.subplot(1, 3, 3)
-            plt.plot(history.history["accuracy"], label="Training Accuracy")
-            plt.plot(history.history["val_accuracy"], label="Validation Accuracy")
-            plt.title("Accuracy")
-            plt.xlabel("Epochs")
-            plt.ylabel("Accuracy")
-            plt.legend()
+        axs.plot(historyOriginalValMAE, label="Validation MAE")
+        axs.plot(historyOriginalMAE, label="Training MAE")
+        axs.grid(True)
+        axs.set_title("Mean Absolute Error (MAE) of " + name)
+        axs.set_xlabel("Epochs")
+        axs.set_ylabel("MAE")
+        axs.legend()
 
         # Show the plots
         plt.tight_layout()
         plt.grid(True)
-        plt.show(block=False)
+        # Remove spaces in name
+        noSpaceName = name.replace(" ", "_")
+        ModelPlotter.saveFigure(fig, noSpaceName + "_learning_curves")
+
+        fig, axs = plt.subplots(1, 1, figsize=(6, 6))
+
+        axs.axis("off")
+        for i, text in enumerate(Dataset.acceptedFeatures):
+            axs.text(
+                0.05,
+                0.9 - i * 0.05,
+                text,
+                transform=axs.transAxes,
+                fontsize=10,
+                bbox=dict(facecolor="white", alpha=0.5),
+            )
+        axs.text(
+            0.05,
+            0.9 - len(Dataset.acceptedFeatures) * 0.05,
+            f"Avg of last 15 Epochs: {np.mean(historyOriginalValMAE[-15:]):.2f}",
+            transform=axs.transAxes,
+            fontsize=10,
+            bbox=dict(facecolor="white", alpha=0.5),
+        )
+
+        # Show the plots
+        plt.tight_layout()
+        plt.grid(True)
+        ModelPlotter.saveFigure(fig, noSpaceName + "_features")
+
+        # Accuracy plot (if applicable)
+        # if "accuracy" in history.history:
+        #     plt.subplot(1, 3, 3)
+        #     plt.plot(history.history["accuracy"], label="Training Accuracy")
+        #     plt.plot(history.history["val_accuracy"], label="Validation Accuracy")
+        #     plt.title("Accuracy")
+        #     plt.xlabel("Epochs")
+        #     plt.ylabel("Accuracy")
+        #     plt.legend()
+
+        # plt.show(block=False)
+
+    @staticmethod
+    def write_to_tex_commands(
+        metrics, dir=("./figures/"), filename="model_metrics.tex"
+    ):
+        with open(dir + ModelPlotter.curDate + "/" + filename, "w") as f:
+            # Write LaTeX command for each model metric
+            for model_name, r2, mae, variance in metrics:
+                f.write(
+                    f"\\newcommand{{\\varRScore{model_name.replace(' ', '')}}}{{{r2:.4f}}}\n"
+                )
+                f.write(
+                    f"\\newcommand{{\\varMAE{model_name.replace(' ', '')}}}{{{mae:.4f}}}\n"
+                )
+                f.write(
+                    f"\\newcommand{{\\varVariance{model_name.replace(' ', '')}}}{{{variance:.4f}}}\n"
+                )
+                f.write("\n")
+        print(f"Metrics saved to {filename}")
 
     @staticmethod
     def predVsTrue(predictions_and_tests):
         plt.figure(figsize=(8, 6))
+        metrics = []
 
         for idx, (name, yPred, yTest) in enumerate(predictions_and_tests):
             # Calculate R² score
@@ -84,6 +137,7 @@ class ModelPlotter:
                 s=5,
                 label=f"{name} - R²: {r2:.2f}, MAE: {mae_value:.2f}, Variance: {variance:.2f}",
             )
+            metrics.append((name, r2, mae_value, variance))
 
             # Line of 1:1 correlation (slope = 1, intercept = 0)
             plt.plot([min(yTest), max(yTest)], [min(yTest), max(yTest)], color="red")
@@ -96,7 +150,9 @@ class ModelPlotter:
         # Show the plot with legends and grid
         plt.legend()
         plt.grid(True)
-        plt.show(block=False)
+        # plt.show(block=False)
+        ModelPlotter.saveFigure(plt.gcf(), "pred_vs_true")
+        ModelPlotter.write_to_tex_commands(metrics)
 
     @staticmethod
     def plotEstimateOnCSV(models, path):
@@ -177,6 +233,24 @@ class ModelPlotter:
         ax_line.legend(loc="upper right")
         # Adjust layout for the combined figure
         plt.tight_layout()
+        ModelPlotter.saveFigure(fig, "estimate_on_csv")
 
         # Return the combined figure
         return fig
+
+    @staticmethod
+    def saveFigure(fig, figName):
+        # Get current date in mm-dd-yyyy format
+
+        # Define folder and file path
+        folder_path = os.path.join("./figures", ModelPlotter.curDate)
+        file_path = os.path.join(folder_path, f"{figName}.png")
+
+        # Create folder if it doesn't exist
+        os.makedirs(folder_path, exist_ok=True)
+
+        # Save figure
+        fig.savefig(file_path, dpi=600, bbox_inches="tight")
+        plt.close(fig)
+
+        print(f"Figure saved at: {file_path}")

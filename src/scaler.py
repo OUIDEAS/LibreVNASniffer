@@ -2,21 +2,23 @@ from sklearn.preprocessing import MinMaxScaler, StandardScaler
 import numpy as np
 
 
-MAX_TEMP = 1000
+MAX_TEMP = 200
 MAX_DISTANCE = 1000
+MIN_TEMP = 20
 
 
 class Scaler:
     def __init__(self):
         self.scaler_map = {
             "resonanceFrequency": (MinMaxScaler(), None, None),
-            "normalizedResonanceFrequency": (MinMaxScaler(), 0, 1000),
-            "resonanceMagnitude": (MinMaxScaler(), -100, -40),
-            "resonancePhase": (MinMaxScaler(), None, None),
+            "normalizedResonanceFrequency": (MinMaxScaler(), MIN_TEMP, MAX_TEMP),
+            # "resonanceMagnitude": (MinMaxScaler(), -100, -40),
+            "resonanceMagnitude": (StandardScaler(), None, None),
+            "resonancePhase": (StandardScaler(), None, None),
             "resonanceReal": (MinMaxScaler(), None, None),
             "resonanceImag": (MinMaxScaler(), None, None),
             "deltaResonanceFrequency": (MinMaxScaler(), None, None),
-            "temperature": (MinMaxScaler(), 0, MAX_TEMP),
+            "temperature": (MinMaxScaler(), MIN_TEMP, MAX_TEMP),
             "distance": (MinMaxScaler(), 0, MAX_DISTANCE),
         }
 

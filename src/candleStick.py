@@ -3,6 +3,8 @@ import pandas as pd
 import numpy as np
 from touchstone import TouchstoneList, Touchstone
 from csvList import sensVsDist
+from modelplotter import ModelPlotter
+import matplotlib.lines as mlines
 
 
 print("loading ", len(sensVsDist), " datasets")
@@ -21,7 +23,7 @@ touchstoneTuples = [
 print(*touchstoneTuples, sep="\n")
 
 # wait for a second
-wait = input("Press Enter to continue.")
+# wait = input("Press Enter to continue.")
 
 
 # Create a DataFrame from the list of tuples
@@ -59,66 +61,78 @@ counts = [
 group_labels = ["200", "350", "500", "750", "900"]
 labels = [f"{group}\n(n={count})" for group, count in zip(group_labels, counts)]
 
-# Create a 2x2 subplot figure
-fig, axes = plt.subplots(2, 2, figsize=(12, 10))
-
+# Create a figure for each plot
+sensVsDistPlot, sensVsDistAx = plt.subplots(figsize=(13, 8))
+accVsDistPlot, accVsDistAx = plt.subplots(figsize=(13, 8))
+freqVsDistPlot, freqVsDistAx = plt.subplots(figsize=(13, 8))
 # First subplot: Boxplot of Sensitivity
-axes[0, 0].boxplot(
+sensVsDistAx.boxplot(
     [
         df_cluster2[df_cluster2["Distance Group"] == group]["Sensitivity"]
         for group in df_cluster2["Distance Group"].cat.categories
     ],
     labels=labels,
 )
-axes[0, 0].set_title("Boxplot of Sensitivity by Distance Group")
-axes[0, 0].set_xlabel("Distance (mm) Group")
-axes[0, 0].set_ylabel("Sensitivity (MHz/°C)")
-axes[0, 0].grid(True)
+sensVsDistAx.set_title("Boxplot of Sensitivity by Distance Group")
+sensVsDistAx.set_xlabel("Distance (mm) Group")
+sensVsDistAx.set_ylabel("Sensitivity (MHz/°C)")
+sensVsDistAx.grid(True)
 
 # Add individual points
 additional_points_x = [2, 3, 4]  # Corresponding x positions for "350", "500", "750"
 additional_points_y = [0.027, 0.056, 0.059]
-axes[0, 0].scatter(
+colors = ["blue", "orange", "red"]
+labels2 = ["N-35", "N-50", "N-75"]
+sensVsDistAx.scatter(
     additional_points_x,
     additional_points_y,
-    color=["blue", "orange", "red"],
+    color=colors,
     marker="o",
 )
-axes[0, 0].legend(["N-35", "N-50", "N-75"])
+# Create legend handles manually
+legend_handles = [
+    mlines.Line2D(
+        [], [], color=color, marker="o", linestyle="None", markersize=8, label=label
+    )
+    for color, label in zip(colors, labels2)
+]
+
+# Add legend with correct colors
+sensVsDistAx.legend(handles=legend_handles)
 
 # Second subplot: Boxplot of Accuracy
-axes[0, 1].boxplot(
+accVsDistAx.boxplot(
     [
         df_cluster2[df_cluster2["Distance Group"] == group]["R2"]
         for group in df_cluster2["Distance Group"].cat.categories
     ],
     labels=labels,
 )
-axes[0, 1].set_title("Boxplot of Accuracy by Distance Group")
-axes[0, 1].set_xlabel("Distance (mm) Group")
-axes[0, 1].set_ylabel("Accuracy (R²)")
-axes[0, 1].grid(True)
+accVsDistAx.set_title("Boxplot of Accuracy by Distance Group")
+accVsDistAx.set_xlabel("Distance (mm) Group")
+accVsDistAx.set_ylabel("Accuracy (R²)")
+accVsDistAx.grid(True)
 
 # Third subplot: Scatter plot
 unique_distances = sorted(df["Distance"].unique(), reverse=True)
 colors = ["red", "blue", "green", "purple", "orange", "yellow"]
 for i, distance in enumerate(unique_distances):
     subset = df[df["Distance"] == distance]
-    axes[1, 0].scatter(
+    freqVsDistAx.scatter(
         subset["Root"],
         subset["Sensitivity"],
         color=colors[i % len(colors)],
         label=f"Distance {distance} mm",
         edgecolors="black",
     )
-axes[1, 0].set_title("Root Frequency vs Sensitivity")
-axes[1, 0].set_xlabel("Root Frequency (MHz)")
-axes[1, 0].set_ylabel("Sensitivity (MHz/°C)")
-axes[1, 0].legend(title="Distance (mm)")
-axes[1, 0].grid(True)
+freqVsDistAx.set_title("Root Frequency vs Sensitivity")
+freqVsDistAx.set_xlabel("Root Frequency (MHz)")
+freqVsDistAx.set_ylabel("Sensitivity (MHz/°C)")
+freqVsDistAx.legend(title="Distance (mm)")
+freqVsDistAx.grid(True)
 
-# Hide the fourth subplot (empty for now)
-axes[1, 1].axis("off")
 
 plt.tight_layout()
-plt.show()
+ModelPlotter.saveFigure(sensVsDistPlot, "sensVsDistPlot")
+ModelPlotter.saveFigure(accVsDistPlot, "accVsDistPlot")
+ModelPlotter.saveFigure(freqVsDistPlot, "freqVsDistPlot")

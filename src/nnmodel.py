@@ -98,7 +98,7 @@ class NNModel(Model):
         # Train the model
         print("Training NN on dataset for ", epochs, " epochs")
         Dataset.print_dataset_info("Training dataset", training_dataset)
-        Dataset.plotFeatures(training_dataset)
+        # Dataset.plotFeatures(training_dataset)
         history = self.model.fit(
             training_dataset,
             epochs=epochs,
