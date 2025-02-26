@@ -62,6 +62,7 @@ class DataCenter:
         tsFile.addTemperatureData(temp)
         print("Polling Finished, Checking for valid data")
         if self.checkForInvalidData(tsFile, tsList):
+            tsList.invalidData += 1
             return
         print("Data is valid, adding to tsList")
         tsList.addTouchstone(tsFile)

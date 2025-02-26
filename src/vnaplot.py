@@ -218,6 +218,12 @@ class VNAPlot:
             1e-9,
             "GHz",
         )
+        self.addStat(
+            "Invalid Points removed",
+            self.tsList.invalidData,
+            1,
+            "Points",
+        )
 
         def updateBufferGraph(buffer, ax, line):
             line.set_xdata(range(len(buffer)))  # Plot rolling buffer

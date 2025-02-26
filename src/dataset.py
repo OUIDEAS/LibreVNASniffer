@@ -8,6 +8,8 @@ from touchstone import Touchstone, TouchstoneList
 import tensorflow as tf
 from scaler import Scaler
 import matplotlib.pyplot as plt
+import hashlib
+import pickle
 
 EPOCHS = 750
 BUFFER_SIZE = 10000
@@ -162,6 +164,53 @@ class Dataset:
     #     X_lstm, y_lstm = self.formatFeatures(X, y)
     #     dataset = tf.data.Dataset.from_tensor_slices((X_lstm, y_lstm))
     #     return dataset
+    @staticmethod
+    def compute_hash(csv_list):
+        """Compute a hash based on file paths and modification times."""
+        hash_obj = hashlib.sha256()
+        for file in csv_list:
+            if os.path.exists(file):
+                mtime = os.path.getmtime(file)  # Last modified time
+                hash_obj.update(f"{file}-{mtime}".encode())
+            else:
+                return None  # If any file is missing, return None to force reload
+
+        # include scaler in hash
+
+        return hash_obj.hexdigest()
+
+    @staticmethod
+    def loadCachedDataset(csvList, cacheFile="cachedDatasets.pkl"):
+        print("Checking for Cached Dataset")
+        hashFile = cacheFile + ".hash"
+        currentHash = Dataset.compute_hash(csvList)
+        print(f"Current Hash: {currentHash}")
+        if currentHash is None:
+            return None
+        cachePath = "cache/"
+        if os.path.exists(cachePath + cacheFile) and os.path.exists(
+            cachePath + hashFile
+        ):
+            with open(cachePath + hashFile, "r") as f:
+                cachedHash = f.read().strip()
+            if currentHash == cachedHash:
+                print("Loading Cached Dataset")
+                return pickle.load(open(cachePath + cacheFile, "rb"))
+            else:
+                print("Hash Mismatch")
+        print("No Cached Dataset Found")
+        return None
+
+    def saveCachedDataset(self, csvList, cacheFile="cachedDataset"):
+        print("Saving Cached Dataset")
+        cachePath = "cache/"
+        if not os.path.exists(cachePath):
+            os.makedirs(cachePath)
+        self.dataset.save(cachePath + cacheFile)
+        pickle.dump(self.scaler, open(cachePath + cacheFile + "_scaler" + ".pkl", "wb"))
+        with open(cachePath + cacheFile + ".hash", "w") as f:
+            f.write(self.compute_hash(csvList))
+            print("Saved Cached Dataset")
 
     @classmethod
     def fromCSVList(
@@ -171,7 +220,14 @@ class Dataset:
         buffer_size=BUFFER_SIZE,
         batch_size=BATCH_SIZE,
     ):
+        newInstance = cls(timesteps, buffer_size, batch_size)
+        formatedFeaturesList = []
+        # cachedInstance = newInstance.loadCachedDataset(csvList)
+        # if cachedInstance is not None:
+        # return cachedInstance
+
         plt.figure(figsize=(8, 6))
+
         # Small dots with transparency
 
         plt.xlabel("Realative Resonance Frequency")
@@ -181,8 +237,6 @@ class Dataset:
         # Choose a colormap with more distinct colors
         cmap = plt.get_cmap("tab20")  # Or try 'Set3', 'hsv', 'Spectral', etc.
         norm = plt.Normalize(vmin=0, vmax=len(csvList))
-        newInstance = cls(timesteps, buffer_size, batch_size)
-        formatedFeaturesList = []
         for idx, csv in enumerate(csvList):
             touchstoneList = TouchstoneList.loadTouchstoneListFromCSV(csv)
             slope, _ = touchstoneList.getSlopeAndInterceptOfResonantFreq()
@@ -238,6 +292,7 @@ class Dataset:
         print(f"Total Batched samples after shuffle: {total_samples}")
         Dataset.print_dataset_info("Combined dataset", combinedDataset)
         newInstance.dataset = combinedDataset
+        # newInstance.saveCachedDataset(csvList)
         return newInstance
 
     @staticmethod

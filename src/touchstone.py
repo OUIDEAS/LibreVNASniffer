@@ -101,7 +101,7 @@ class Touchstone:
 class TouchstoneList:
     def __init__(self):
         self.touchstones = []
-
+        self.invalidData = 0
         self.firstTimestamp = None
         self.name = None
         self.config = None
