@@ -4,7 +4,7 @@ from touchstone import Touchstone, TouchstoneList
 from dataconfig import DataConfig
 import numpy as np
 
-TIMESTEPS_CUTOFF = 50
+TIMESTEPS_CUTOFF = 20
 
 
 class DataCenter:
@@ -41,7 +41,7 @@ class DataCenter:
         else:
             return False
 
-    def getData(self, tsList, config: DataConfig):
+    def getVNAData(self, config: DataConfig):
         # Get new data from VNA
         print("Polling VNA for new data")
         data = self.vna.requestFrequencySweep(
@@ -55,6 +55,10 @@ class DataCenter:
         )
         if data is None:
             return
+        return data
+
+    def getData(self, tsList, config: DataConfig):
+        data = self.getVNAData(config)
         tsFile = Touchstone(data)
         print("Polling Thermocouple for new data")
         temp = self.thermocouple.readTempatureCelsius()

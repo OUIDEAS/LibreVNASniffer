@@ -4,7 +4,7 @@ from tkinter import ttk, filedialog, messagebox
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
 from vnacommandcenter import VNACommandCenter
 from vnaplot import VNAPlot
-from touchstone import TouchstoneList
+from touchstone import TouchstoneList, Touchstone
 from datetime import datetime
 import matplotlib.pyplot as plt
 import os
@@ -16,6 +16,7 @@ from matplotlib.animation import FuncAnimation
 import time
 import glob
 from markdownEditor import MarkdownEditor
+import numpy as np
 
 
 # Base Gui Application
@@ -95,12 +96,16 @@ class Application:
         self.openFileExplorerButton = tk.Button(
             self.buttonFrame, text="Open saved CSV", command=self.openFileExplorer
         )
+        self.screenShotButton = tk.Button(
+            self.buttonFrame, text="Take Screenshot", command=self.saveScreenshot
+        )
         buttons = [
             self.analyze_button,
             self.printTouchstoneListButton,
             self.saveRunButton,
             self.pauseRunButton,
             self.openFileExplorerButton,
+            self.screenShotButton,
         ]
         buttonIndex = 0
         for button in buttons:
@@ -159,6 +164,37 @@ class Application:
         self.saveMarkdown(notesDir[0])
         print("===File Updated===")
         return self.projectDirectory
+
+    # Saves a single Touchstone as a "screenshot" in /data/screenshots/
+    def saveScreenshot(self):
+        config = self.getConfigFromUser()
+        if config == None:
+            return
+        try:
+            self.dataCenter = DataCenter()
+        except Exception:
+            self.result_text.insert(
+                tk.END, "Cannot connect to devices, are they plugged in?" + "\n"
+            )
+            return
+
+        data = self.dataCenter.getVNAData(config)
+        touchstone = Touchstone(data)
+
+        now = datetime.now()
+        timestamp = now.strftime("%Y%m%d_%H%M%S")
+        baseDirectory = f"./screenshots/screenshot-{timestamp}"
+        if not os.path.exists(baseDirectory):
+            os.makedirs(baseDirectory)
+        prefix = "screenshot_"
+        # Create the filename
+        csvFileName = f"{prefix}{timestamp}.csv"
+        csvFilePath = f"{baseDirectory}/{csvFileName}"
+        touchstone.saveSingletonTouchstoneAsCSV(csvFilePath)
+        self.getConfigFromUser().saveConfig(baseDirectory)
+        print("===Screenshot Saved===")
+
+        return
 
     def saveRun(self):
         if self.projectDirectory:

@@ -92,19 +92,19 @@ class ModelPlotter:
 
     @staticmethod
     def write_to_tex_commands(
-        metrics, dir=("./figures/"), filename="model_metrics.tex"
+        metrics, dir=("./figures/"), filename="model_metrics.tex", precision=2
     ):
         with open(dir + ModelPlotter.curDate + "/" + filename, "w") as f:
             # Write LaTeX command for each model metric
             for model_name, r2, mae, variance in metrics:
                 f.write(
-                    f"\\newcommand{{\\varRScore{model_name.replace(' ', '')}}}{{{r2:.4f}}}\n"
+                    f"\\newcommand{{\\varRScore{model_name.replace(' ', '')}}}[1][{precision}]{{\\num[round-mode=places, round-precision=#1]{{{r2}}}}}\n"
                 )
                 f.write(
-                    f"\\newcommand{{\\varMAE{model_name.replace(' ', '')}}}{{{mae:.4f}}}\n"
+                    f"\\newcommand{{\\varMAE{model_name.replace(' ', '')}}}[1][{precision}]{{\\num[round-mode=places, round-precision=#1]{{{mae}}}}}\n"
                 )
                 f.write(
-                    f"\\newcommand{{\\varVariance{model_name.replace(' ', '')}}}{{{variance:.4f}}}\n"
+                    f"\\newcommand{{\\varVariance{model_name.replace(' ', '')}}}[1][{precision}]{{\\num[round-mode=places, round-precision=#1]{{{variance}}}}}\n"
                 )
                 f.write("\n")
         print(f"Metrics saved to {filename}")

@@ -1,0 +1,11 @@
+{
+    "freqStart": 3.0,
+    "freqEnd": 4.0,
+    "points": 4000,
+    "signalName": "S21TD",
+    "maxDB": 0,
+    "minDB": -70,
+    "IFBW": 1000,
+    "bufferSize": 10,
+    "distance": 222
+}

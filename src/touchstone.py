@@ -8,6 +8,7 @@ from sklearn.linear_model import LinearRegression
 from dataconfig import DataConfig
 import os
 import sys
+import pickle
 
 
 class Touchstone:
@@ -20,6 +21,8 @@ class Touchstone:
         self.resonanceMagnitude = minValue
         self.resonanceComplex = self.data[minIndex, 1]
         self.resonancePhase = np.degrees(np.angle(self.resonanceComplex))
+        self.temperatureData = None
+        self.config = None
 
     def getFrequencyRange(self):
         return [z.real for z in self.data[:, 0]]
@@ -45,6 +48,24 @@ class Touchstone:
             data.extend(row)
         return data
 
+    def saveSingletonTouchstoneAsCSV(self, filename):
+        print("saving singltone csv")
+        data = []
+        data.append(float(self.getResonanceFrequency()[0]) / 10**9)
+        data.append(self.getResonanceFrequency()[1])
+        if self.getTemperatureData() is None:
+            print("Temperature data is None")
+            self.addTemperatureData(30)
+        data.append(self.getTemperatureData())
+        for row in self.data:
+            data.extend(row)
+        # Write the 2D array to a CSV file
+
+        with open(filename, "w", newline="") as file:
+            writer = csv.writer(file)
+            writer.writerow(data)
+        print("csv saved")
+
     @classmethod
     def loadCSVData(self, row):
         timestamp = row[0]
@@ -61,6 +82,24 @@ class Touchstone:
             freq_complex_pairs.append((freq, complex_value))
         ts = Touchstone(freq_complex_pairs)
         ts.addTemperatureData(temperature)
+        return ts
+
+    @staticmethod
+    def loadSingletonTouchstoneFromCSV(filename) -> "Touchstone":
+        fieldnames = ["resonanceFreq", "resonanceMag", "temp"]
+        ts = None
+        with open(filename, "r") as file:
+            reader = csv.reader(file)
+            for row in reader:
+                # Fake Timestamp
+                row.insert(0, 0)
+                ts = Touchstone.loadCSVData(row)
+
+        # Isolate just the csv filename
+
+        dir = filename.rsplit("/", 1)[0]
+        ts.config = DataConfig.loadConfig(dir)
+        print("Loaded touchstone list from", dir + "/")
         return ts
 
     def getResonanceFrequency(self):
@@ -123,6 +162,7 @@ class TouchstoneList:
         return self.touchstones
 
     def getSlopeAndInterceptOfResonantFreq(self):
+        print(self.name + " getting slope and intercept")
         temperature = self.getTemperatureDataList()
         ndTemperature = np.array(temperature)
 
@@ -276,6 +316,19 @@ class TouchstoneList:
 
     @staticmethod
     def loadTouchstoneListFromCSV(filename) -> "TouchstoneList":
+        import_path = filename
+        cache_path = filename + ".pkl"
+
+        # Check if cached file is up to date
+        if os.path.exists(cache_path):
+            csv_mtime = os.path.getmtime(import_path)
+            pkl_mtime = os.path.getmtime(cache_path)
+            if pkl_mtime > csv_mtime:
+                print("Loading cached touchstone list from", cache_path)
+                with open(cache_path, "rb") as f:
+                    return pickle.load(f)
+
+        print("Loading touchstone list from", filename, end=" ")
         fieldnames = ["timestamp", "resonanceFreq", "resonanceMag", "temp"]
         tsl = TouchstoneList()
         with open(filename, "r") as file:
@@ -283,11 +336,17 @@ class TouchstoneList:
             for row in reader:
                 ts = Touchstone.loadCSVData(row)
                 tsl.addTouchstone(ts)
-        # Isolate just the csv filename
+
+        # Isolate just the CSV filename
         tsl.name = filename.split("/")[-1]
         dir = filename.rsplit("/", 1)[0]
         tsl.config = DataConfig.loadConfig(dir)
         print("Loaded touchstone list from", dir + "/" + tsl.name)
+
+        # Cache to binary
+        with open(cache_path, "wb") as f:
+            pickle.dump(tsl, f)
+
         return tsl
 
     def __repr__(self):

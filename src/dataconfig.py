@@ -53,9 +53,13 @@ class DataConfig:
 
     def loadConfig(filename):
         # Load the object from a JSON file
+        # If the file is not found, return None
         filename = filename + "/config.json"
         config = DataConfig()
-        with open(filename, "r") as file:
-            data = json.load(file)
-            config.data = data
-            return config
+        try:
+            with open(filename, "r") as file:
+                data = json.load(file)
+                config.data = data
+                return config
+        except FileNotFoundError:
+            return None

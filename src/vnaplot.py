@@ -358,6 +358,8 @@ class VNAPlot:
 
         # Step 4: Print the slope
         print(f"Weighted slope of Frequency with respect to Temperature: {slope}")
+        x_pos = 0.05 if slope > 0 else 0.95
+        textAlign = "left" if slope > 0 else "right"
 
         self.ax6.clear()
 
@@ -378,12 +380,12 @@ class VNAPlot:
 
         # Add slope as text near the line
         text = self.ax6.text(
-            0.95,
+            x_pos,
             0.95,  # Coordinates in figure-relative (normalized) units
             f"Slope(MHz/°C) = {(slope * 1e-6):.3f}",
             color="red",
             fontsize=10,
-            ha="right",  # Align text to the right
+            ha=textAlign,  # Align text to the right
             va="top",  # Align text to the top
             transform=self.ax6.transAxes,  # Use axes-relative coordinates
         )
@@ -396,12 +398,12 @@ class VNAPlot:
             # Add R^2 as text near the line
             print("Adding R^2 score to plot")
             text = self.ax6.text(
-                0.95,
+                x_pos,
                 0.85,  # Coordinates in figure-relative (normalized) units
                 f"$R^2$ = {r2_score:.3f}",
                 color="red",
                 fontsize=10,
-                ha="right",  # Align text to the right
+                ha=textAlign,  # Align text to the right
                 va="top",  # Align text to the top
                 transform=self.ax6.transAxes,  # Use axes-relative coordinates
             )
