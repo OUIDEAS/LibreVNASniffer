@@ -37,7 +37,7 @@ for pair in timeDomianDataPairs:
     ax.plot(
         np.array(withSensor.getFrequencyRange()) * 1e9,
         withSensor.getDataMagnitude(),
-        label="S21 Time domain",
+        label="S21 Time Domain",
         color="blue",
     )
     # ax.plot(
@@ -56,7 +56,7 @@ for pair in timeDomianDataPairs:
         color="yellow", alpha=0.3, label="Time Gated Window"
     )
     highlight_patch_crosstalk = mpatches.Patch(
-        color="gray", alpha=0.3, label="Interogator Antenna Crosstalk"
+        color="gray", alpha=0.3, label="Interrogator Antenna Crosstalk"
     )
 
     # Add the legend

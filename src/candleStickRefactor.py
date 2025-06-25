@@ -65,7 +65,7 @@ def plot_sensitivity_by_distance(df_cluster2, labels):
     fig, ax1 = plt.subplots(figsize=(8, 5))
     # Define midpoints of each bin (in mm)
     group_midpoints = [0.5, 200, 350, 500, 750, 900]  # Rough center of each bin
-    group_labels = ["0mm", "200mm", "350mm", "500mm", "750mm", "900mm"]
+    group_labels = ["0", "200", "350", "500", "750", "900"]
     # Boxplot for sensitivity by distance group
     groups = df_cluster2["Distance Group"].cat.categories
     data = [
@@ -76,9 +76,7 @@ def plot_sensitivity_by_distance(df_cluster2, labels):
     # X axis label locations and text
     ax1.set_xticks(group_midpoints)
     counts = [len(d) for d in data]
-    ax1.set_xticklabels(
-        [f"{label}\n(n={count})" for label, count in zip(group_labels, counts)]
-    )
+    ax1.set_xticklabels([f"{label}" for label, count in zip(group_labels, counts)])
 
     ax1.set_xlabel("Distance (mm)")
     ax1.set_ylabel("Sensitivity (MHz/°C)")
@@ -143,14 +141,27 @@ def plot_sensitivity_by_distance(df_cluster2, labels):
 
 def plot_accuracy_by_distance(df_cluster2, labels):
     fig, ax = plt.subplots(figsize=(6.5, 4))
+
+    # Exclude the group from 0 to 1
+    filtered_groups = [
+        group
+        for group in df_cluster2["Distance Group"].cat.categories
+        if group != pd.Interval(0, 1, closed="left")
+    ]
+    filtered_labels = [
+        label
+        for group, label in zip(df_cluster2["Distance Group"].cat.categories, labels)
+        if group != pd.Interval(0, 1, closed="left")
+    ]
+
     ax.boxplot(
         [
             df_cluster2[df_cluster2["Distance Group"] == group]["R2"]
-            for group in df_cluster2["Distance Group"].cat.categories
+            for group in filtered_groups
         ],
-        labels=labels,
+        labels=filtered_labels,
     )
-    ax.set_xlabel("Distance (mm) Group")
+    ax.set_xlabel("Distance (mm)")
     ax.set_ylabel("Accuracy (R²)")
     ax.grid(True)
     plt.tight_layout()
@@ -179,10 +190,9 @@ def plot_root_vs_sensitivity(df):
             label=group_name,
         )
 
-    plt.xlabel("Root")
-    plt.ylabel("Sensitivity")
-    plt.title("Root vs Sensitivity by Distance Group")
-    plt.legend(title="Distance Groups")
+    plt.xlabel("Initial Resonant Frequency (GHz)")
+    plt.ylabel("Sensitivity (MHz/°C)")
+    plt.legend(title="Distance Groups (mm)")
     plt.grid(axis="both", linestyle="--", alpha=0.7)
     plt.tight_layout()
     ModelPlotter.saveFigure(fig, "freqVsDistPlot")
@@ -206,6 +216,7 @@ if __name__ == "__main__":
         for ts in [TouchstoneList.loadTouchstoneListFromCSV(path) for path in csv_list]
         if len(ts.touchstones) >= 5 and ts.getR2() >= 0.2
     ]
+    print(len(datasets), "datasets loaded")
 
     touchstoneTuples = [
         (
@@ -214,12 +225,14 @@ if __name__ == "__main__":
             abs(ts.getSlopeAndInterceptOfResonantFreq()[0]) * 1e-6,
             ts.getR2(),
             ts.config.data["distance"] if ts.config and ts.config.data else 0,
+            ts.getTemperatureDataList(),
         )
         for ts in datasets
     ]
 
     df = pd.DataFrame(
-        touchstoneTuples, columns=["Name", "Root", "Sensitivity", "R2", "Distance"]
+        touchstoneTuples,
+        columns=["Name", "Root", "Sensitivity", "R2", "Distance", "Temperature"],
     )
     df["invSensitivity"] = 1 / df["Sensitivity"]
 
@@ -236,7 +249,7 @@ if __name__ == "__main__":
         len(df[df["Distance Group"] == group])
         for group in df["Distance Group"].cat.categories
     ]
-    labels = [f"{group}\n(n={count})" for group, count in zip(group_labels, counts)]
+    labels = [f"{group}" for group, count in zip(group_labels, counts)]
 
     distance_colors = {
         pd.Interval(0, 1, closed="left"): "gray",
@@ -272,6 +285,35 @@ if __name__ == "__main__":
         lambda x: "Cluster1" if abs(x - center1) < abs(x - center2) else "Cluster2"
     )
     df_cluster2 = df[df["Cluster"] == "Cluster2"].drop(columns=["Cluster"])
+    # Analyze and print touchstone data
+    rising_count = {}
+    falling_count = {}
+
+    for _, row in df.iterrows():
+        # Determine if the temperature is rising or falling
+        temperature_data = row["Temperature"]
+        if temperature_data[-1] > temperature_data[0]:
+            trend = "Rising"
+            rising_count[row["Distance Group"]] = (
+                rising_count.get(row["Distance Group"], 0) + 1
+            )
+        else:
+            trend = "Falling"
+            falling_count[row["Distance Group"]] = (
+                falling_count.get(row["Distance Group"], 0) + 1
+            )
+
+        # Print touchstone details
+        print(
+            f"Touchstone: {row['Name']}, Distance: {row['Distance']} mm, Temperature: {trend}"
+        )
+
+    # Print summary
+    print("\nSummary:")
+    for group in df["Distance Group"].cat.categories:
+        rising = rising_count.get(group, 0)
+        falling = falling_count.get(group, 0)
+        print(f"Distance Group {group}: Rising = {rising}, Falling = {falling}")
 
     plot_r2_scores(df, csv_list)
     plot_sensitivity_by_distance(df_cluster2, labels)

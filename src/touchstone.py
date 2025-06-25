@@ -162,6 +162,8 @@ class TouchstoneList:
         return self.touchstones
 
     def getSlopeAndInterceptOfResonantFreq(self):
+        if self.name is None:
+            self.name = "Unnamed Touchstone List"
         print(self.name + " getting slope and intercept")
         temperature = self.getTemperatureDataList()
         ndTemperature = np.array(temperature)
