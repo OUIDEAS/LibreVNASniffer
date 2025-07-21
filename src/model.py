@@ -28,7 +28,7 @@ class Model:
     def __init__(self) -> None:
         self.model = None
         self.modelName = "Default Model name"
-        self.scaler = None
+        self.scaler: Scaler
 
     def initModel(self):
         raise NotImplementedError("Subclasses must implement this method")

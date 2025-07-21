@@ -60,6 +60,30 @@ def plot_r2_scores(df, csv_list):
 
 
 def plot_sensitivity_by_distance(df_cluster2, labels):
+    """
+    Plots sensitivity by distance group and overlays received power curve data.
+    This function generates a boxplot of sensitivity values grouped by distance
+    categories, along with scatter points for additional data. It also overlays
+    a received power curve on a secondary y-axis, showing the relationship between
+    distance and received power in dBm.
+    Args:
+        df_cluster2 (pd.DataFrame): DataFrame containing sensitivity and distance group data.
+            Expected columns:
+                - "Distance Group": Categorical data representing distance bins.
+                - "Sensitivity": Sensitivity values (MHz/°C).
+        labels (list): Labels for the scatter points corresponding to additional data.
+    Returns:
+        None: The function saves the generated plot as a file using ModelPlotter.saveFigure.
+    Notes:
+        - The boxplot represents sensitivity grouped by predefined distance bins.
+        - Additional scatter points are plotted for specific distances and sensitivities.
+        - A secondary y-axis displays the received power curve data, including a horizontal
+          line for the minimum detectable power.
+        - The function uses `received_power_curve_data` from the `friss` module to obtain
+          distances and power values.
+    Example:
+        >>> plot_sensitivity_by_distance(df_cluster2, labels=["N-35", "N-50", "N-75"])
+    """
     from friss import received_power_curve_data
 
     fig, ax1 = plt.subplots(figsize=(8, 5))
@@ -87,7 +111,7 @@ def plot_sensitivity_by_distance(df_cluster2, labels):
     additional_points_y = [0.027, 0.056, 0.059]
     colors = ["blue", "orange", "red"]
     labels2 = ["N-35", "N-50", "N-75"]
-    ax1.scatter(additional_points_x, additional_points_y, color=colors, marker="o")
+    ax1.scatter(additional_points_x, additional_points_y, color=colors)
 
     legend_handles = [
         mlines.Line2D(

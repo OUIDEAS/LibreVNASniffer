@@ -41,7 +41,7 @@ def received_power_curve_data(
     Pt_dBm = -2
     Gt_dBi = 12
     Gr_dBi = 12
-    Gs_dBi = 5.5
+    Gs_dBi = 4.2
     S11_dB = -10
     Ld_dB = -0.5
     F_dB = 1
