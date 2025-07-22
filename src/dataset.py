@@ -1,4 +1,3 @@
-# selfselselfselfselfselff Dataset Class
 import time
 import os
 import numpy as np
