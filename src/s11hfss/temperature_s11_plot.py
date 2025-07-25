@@ -88,9 +88,13 @@ def plot_temperature_s11():
         zorder=5,
     )
 
+    def format_with_unicode_minus(value, precision=2):
+        formatted = f"{value:.{precision}f}"
+        return formatted.replace("-", "−")
+
     # Add annotations for resonance frequencies - positioned near the points but offset to avoid blocking
     plt.annotate(
-        f"High Temp Resonance\n{low_temp:.0f}°C: {low_temp_res_freq:.3f} GHz\n{low_temp_res_s11:.2f} dB",
+        f"High Temp Resonance\n{low_temp:.0f}°C: {low_temp_res_freq:.3f} GHz\n {format_with_unicode_minus(low_temp_res_s11)} dB",
         xy=(low_temp_res_freq, low_temp_res_s11),
         xytext=(
             low_temp_res_freq + 0.05,
@@ -102,7 +106,7 @@ def plot_temperature_s11():
     )
 
     plt.annotate(
-        f"Room Temp Resonance\n{high_temp:.0f}°C: {high_temp_res_freq:.3f} GHz\n{high_temp_res_s11:.2f} dB",
+        f"Room Temp Resonance\n{high_temp:.0f}°C: {high_temp_res_freq:.3f} GHz\n{format_with_unicode_minus(high_temp_res_s11)} dB",
         xy=(high_temp_res_freq, high_temp_res_s11),
         xytext=(
             high_temp_res_freq - 0.40,

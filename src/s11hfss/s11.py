@@ -45,11 +45,17 @@ plt.plot(
 plt.scatter(min_freq1, min_s11_1, color="blue", marker="o")
 plt.scatter(min_freq2, min_s11_2, color="red", marker="s")
 
+
+def format_with_unicode_minus(value, precision=2):
+    formatted = f"{value:.{precision}f}"
+    return formatted.replace("-", "−")
+
+
 # Annotate the min points with frequency and magnitude
 plt.text(
     min_freq1,
     min_s11_1,
-    f"({min_freq1:.3f} GHz, {min_s11_1:.2f} dB)",
+    f"({min_freq1:.3f} GHz, {format_with_unicode_minus(min_s11_1)} dB)",
     fontsize=10,
     verticalalignment="bottom",
     horizontalalignment="right",
@@ -58,7 +64,7 @@ plt.text(
 plt.text(
     min_freq2,
     min_s11_2,
-    f"({min_freq2:.3f} GHz, {min_s11_2:.2f} dB)",
+    f"({min_freq2:.3f} GHz, {format_with_unicode_minus(min_s11_2)} dB)",
     fontsize=10,
     verticalalignment="bottom",
     horizontalalignment="left",
