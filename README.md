@@ -1,6 +1,7 @@
 
 
 # LibreVNASniffer
+Paper: https://www.mdpi.com/1424-8220/25/15/4654
 
 This project is a software package designed to work with the **LibreVNA** and the **Measurement Computing USB-2001-TC** using a **Type T thermocouple**.
 
@@ -50,7 +51,7 @@ With a computer running **LibreVNAGUI**, and a connected **LibreVNA** and **Meas
 
 ## `bayesianOpt.py`
 
-*Entry point for Bayesian optimization of model parameters.* (You may want to describe this more.)
+*Entry point for Bayesian optimization of model parameters.* 
 
 ---
 
